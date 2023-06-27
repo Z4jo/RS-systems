@@ -1,0 +1,4 @@
+# Ignore compiled all .pickle file
+*.pickle
+#igonre all the  .py files in src folder 
+./src/*.py
