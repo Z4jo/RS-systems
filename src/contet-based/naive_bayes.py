@@ -63,7 +63,7 @@ def naive_bayes_prediciton(user_df,user_id):
     print(user_id)
     predictions = []
     genres_column_names = np.array(user_df.columns)
-    genres_column_names = genres_column_names[1:len(genres_column_names)-1]
+    genres_column_names = genres_column_names[2:len(genres_column_names)-1]
     nan_indexes = user_df[user_df['rating'].isna()].index 
     class_options = [1.0,2.0,3.0,4.0,5.0]
     values_of_genre = dict()
@@ -126,16 +126,19 @@ if __name__ == '__main__':
             row,column,rating=rating_tuple
             rating_matrix_clone.iloc[row,column] = rating
 
-        all_not_nan_indeces= get_indexes_of_not_empty_ratings_by_user(rating_matrix_clone)
+        #FIX: usseles function get_indexes_of_not_empty_ratings_by_user
+        all_not_nan_indeces = get_indexes_of_not_empty_ratings_by_user(rating_matrix_clone)
         final_dataframe = rating_matrix_clone.copy()
         final_dataframe = pd.DataFrame(np.nan, index = rating_matrix_clone.index, columns = rating_matrix_clone.columns)
         iterable = []
         
+        #FIX: use iterrows instead
         for user_index,_ in enumerate(all_not_nan_indeces):
             user_data = generate_user_dataframe(rating_matrix_clone,movies_df,user_index)
             iterable.append((user_data,user_index))
 
         #user_dataframe = change_rating_to_class(user_index,user_dataframe,rating_matrix) 
+        print(iterable[0])
         pool = multiprocessing.Pool(processes=8)
         predictions = pool.starmap(naive_bayes_prediciton, iterable)
         pool.close()
@@ -156,31 +159,4 @@ if __name__ == '__main__':
     stats = pstats.Stats('profile_stats')
     stats.print_stats()
 
-    """
-    iterable = []
-    for user_index, missing_entries in enumerate(missing_indices):
-        iterable.append((user_index, missing_entries ,item_rating_indexes,rating_matrix))
-    pool = multiprocessing.Pool(processes=8)
-    results = pool.starmap(predict_ratings_user_based,iterable)
-    pool.close()
-    pool.join()
-    """
-    """
-    parts = []
-    if not os.path.exists("./cross_validation_parts.pickle"):
-        parts = cross_validation.create_parts_dataset(5,131,rating_matrix)
-        with open("cross_validation_parts.pickle","wb") as file:
-            pickle.dump(parts,file)
-    else:
-        with open("cross_validation_parts.pickle","rb") as file:
-            parts = pickle.load(file)
-
-    print(ratings_df)
-    print(movies_df)
-    for iteration,part in enumerate(parts):
-        rating_matrix_clone= rating_matrix.copy()
-        for rating_tuple in part:
-            row,column,rating=rating_tuple
-            rating_matrix_clone.iloc[row,column] = rating
-            """
 
