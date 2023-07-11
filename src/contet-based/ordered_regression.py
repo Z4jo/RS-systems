@@ -1,3 +1,4 @@
+import math 
 import numpy as np 
 import pandas as pd
 import math 
@@ -21,38 +22,54 @@ def generate_user_dataframe(rating_matrix, movies_df, user_id):
     merged_df = pd.merge(genres_id, user_ratings_df, on='movieId', how='left')
     return merged_df
 
-def gradiant_descent(step_change, number_of_iterations, parameters, ratings, predictions):
-    iter = 0 
-    while iter < number_of_iterations:
-        updated_parameters = []
-        loss_value = loss_function(ratings, predictions)
-        for parameter in parameters:
-            updated_parameter = parameter - step_change * loss_value
-            updated_parameters.append(updated_parameter)
-            
-        iter += 1
-
 def softmax(predictions):
     exp_vals = np.exp(predictions)
     result = []
     for i in exp_vals:
-        sum = np.sum(i)
-        result.append(i/sum)
+        total = np.sum(i)
+        result.append(i/total)
     return result
 
+def mse(pred_y, y):
+    total = 0
+    for i in range(len(pred_y)):
+        total += (pred_y[i]-y.iloc[i])**2
+    return (1/len(pred_y))*total
 
+def logistic_function(coefficients, independent_values, intercept):
+    beta_x = np.dot(coefficients, independent_values)
+    constant = np.power(np.e, -(intercept - beta_x))
+    return 1 / (1+constant)
 
-def loss_function(ratings, predictions):
-    softmax_values = softmax(predictions)
-    softmax_values = np.log(softmax_values)
-    print(softmax_values)
-    chosen_values = [] 
-    for i,rating in enumerate(ratings):
-        #WARNING: ADD -1 TO RATING
-        chosen_values.append(softmax_values[i][rating])
-    print(chosen_values)
-    return np.sum(chosen_values)
-        
+def logistic_function_derrivative(sigma):
+    return sigma * (1 - sigma)
+
+def indicator_function(y, k):
+    if y == k:
+        return 1
+    else:
+        return 0
+
+def calculate_predictions(genre_df, coefficients, intercepts):
+
+    probabilities = []
+    for _,parameters in genre_df.iterrows():
+        x_probability = np.zeros(len(intercepts))
+        for j,class_intercept in enumerate(intercepts):
+            sigma = logistic_function(coefficients,parameters,class_intercept)
+            x_probability[j] = sigma
+        probabilities.append(x_probability)
+    return probabilities
+
+def coefficients_partial_derrivative(ratings ):
+     
+    return
+
+def intercept_partial_derrivative():
+    return
+
+def fit(X, y):
+    return
 
 if __name__ == '__main__':
     ratings_df = pd.read_csv(PATH_TO_RATINGS,delimiter = ',')
@@ -62,29 +79,23 @@ if __name__ == '__main__':
     rating_matrix.index.name = "userId"
     
     rating_matrix_clone = rating_matrix.copy()
-    y = np.array([0, 2, 2, 0, 1])
-    #x = np.array([[0.13, 0.1, 1.3, -1.27, -2.33], [-0.13, -0.54, 0.95, -0.62, -0.22], [0.64, 0.36, -0.7, 0.04, -1.25]])
-    x = np.array([[0.13, -0.13, 0.64], [0.1, -0.54, 0.36], [1.3, 0.95, -0.7], [-1.27, -0.62, 0.04], [-2.33, -0.22, -1.25]])
-    result = loss_function(y,x)
-    print(result)
-
-""" 
-    user_data = generate_user_dataframe(rating_matrix_clone,movies_df,20)
+    user_data = generate_user_dataframe(rating_matrix_clone,movies_df,0)
     ud = user_data.copy()
     ud = ud.dropna()
     ud = ud.rename(columns = {"(no genres listed)": "beta0" })
     ud_ratings = ud['rating']
-    genre_ud = ud.drop(["movieId","rating"],axis=1)
-    coefficients = np.full(genre_ud.shape[1],0.04)
-    genre_ud['beta0'] = 1
-    genre_ud = genre_ud.apply(lambda x: x+0.01)
-    result = genre_ud * coefficients
-    sum = result.sum(axis = 1)
-    result = np.power(np.e,sum)
-    result = result.apply(lambda x: x/(1+x))
-    print(result)
+    genre_df = ud.drop(["movieId","rating","beta0"],axis=1)
+    #genre_ud['beta0'] = 1
+    print(genre_df)
+   # print(genre_ud)
+    predictions = calculate_predictions(genre_df, np.ones(19),np.ones(5))
+    print(predictions)
     
-       
-
-         
-"""
+    """
+    coefficients, bias = fit(genre_ud, ud_ratings)
+    print(coefficients)
+    y_pred = np.dot(genre_ud, coefficients) + bias
+    
+    msee = mse(y_pred,ud_ratings)
+    print(msee)
+    """
