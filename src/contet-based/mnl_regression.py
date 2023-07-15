@@ -28,7 +28,7 @@ def softmax(predictions):
     for i in exp_vals:
         total = np.sum(i)
         result.append(i/total)
-    return result
+    return np.array(result)
 
 def mse(pred_y, y):
     total = 0
@@ -38,39 +38,44 @@ def mse(pred_y, y):
 
 def logistic_function(coefficients, independent_values, intercept):
     beta_x = np.dot(coefficients, independent_values)
-    constant = np.power(np.e, -(intercept - beta_x))
+    constant = np.power(np.e, (-intercept + beta_x))
     return 1 / (1+constant)
 
-def logistic_function_derrivative(sigma):
-    return sigma * (1 - sigma)
+def onehot(ratings, num_classes):
+    encoded = pd.get_dummies(ratings)
+    encoded = encoded.astype(int)
+    # Add missing columns if ratings contain classes not present in the data
+    return encoded.values
 
-def indicator_function(y, k):
-    if y == k:
-        return 1
-    else:
-        return 0
+def fit(X, y,class_number, iter):
+    weights = np.zeros((X.shape[1],class_number))
+    bias = np.ones((class_number))
+    l_rate = 0.001
+    last_mse = 1000
+    print(weights.shape)
+    print(X.shape)
+    for i in range(iter):
+        y_pred = np.dot(X,weights) + bias
+        test = mse(y_pred[0], y)
+        #if last_mse - test < 0.00000000001: 
+        #    print(math.sqrt(test))
+        #    return weights, bias, test 
+        last_mse = test
+        dw = (1/X.shape[0])*np.dot(X.values.T,softmax(y_pred) - onehot(y, class_number))
+        db = (1/X.shape[0])*np.sum(softmax(y_pred) - onehot(y, class_number))
+        weights = weights - l_rate * dw
+        bias = bias - l_rate * db
+        loss = -np.mean(np.log(softmax(y_pred)[np.arange(len(y)), np.vectorize(lambda x: x - 1)(y)]))
+        print(f"loss:{loss}; iter:{i}")
 
-def calculate_predictions(genre_df, coefficients, intercepts):
+    return weights, bias, last_mse
 
-    probabilities = []
-    for _,parameters in genre_df.iterrows():
-        x_probability = np.zeros(len(intercepts))
-        for j,class_intercept in enumerate(intercepts):
-            sigma = logistic_function(coefficients,parameters,class_intercept)
-            x_probability[j] = sigma
-        probabilities.append(x_probability)
-    return probabilities
-
-def coefficients_partial_derrivative(ratings ):
-     
-    return
-
-def intercept_partial_derrivative():
-    return
-
-def fit(X, y):
-    return
-
+def predict(X, weights, bias):
+    y_pred = np.dot(X.values, weights) + bias
+    soft_X = softmax(y_pred)
+    max = np.argmax(soft_X, axis = 1)
+    return np.vectorize(lambda x: x+1)(max)
+    
 if __name__ == '__main__':
     ratings_df = pd.read_csv(PATH_TO_RATINGS,delimiter = ',')
     movies_df = pd.read_csv(PATH_TO_MOVIES,delimiter = ',')
@@ -83,15 +88,25 @@ if __name__ == '__main__':
     ud = user_data.copy()
     ud = ud.dropna()
     ud = ud.rename(columns = {"(no genres listed)": "beta0" })
-    ud_ratings = ud['rating']
+    ratings_df = ud['rating']
     genre_df = ud.drop(["movieId","rating","beta0"],axis=1)
     #genre_ud['beta0'] = 1
-    print(genre_df)
+    ratings_df = ratings_df.astype(int)
+    print(ratings_df)
    # print(genre_ud)
-    predictions = calculate_predictions(genre_df, np.ones(19),np.ones(5))
-    print(predictions)
-    
+    weights, bias, m_error = fit(genre_df, ratings_df, 5, 20000)
+    #print(weights, bias, mse)
+    pred_y = predict(genre_df, weights, bias)
+    print(pred_y)
+    error = mse(pred_y, ratings_df)
+    print(error)
     """
+    a1 = [[ 1.5, 2],[0.2, 3]]
+    a2 = [[ 0, 1],[1, 0]]
+    s_a1 = softmax(a1)
+    a2 = np.array(a2)
+    s_a1 = np.array(s_a1)
+    print(s_a1 - a2) 
     coefficients, bias = fit(genre_ud, ud_ratings)
     print(coefficients)
     y_pred = np.dot(genre_ud, coefficients) + bias
