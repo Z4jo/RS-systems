@@ -1,15 +1,17 @@
-import math 
 import numpy as np 
 import pandas as pd
 import math 
+import multiprocessing
 import pickle 
-from sklearn.linear_model import LinearRegression
-import matplotlib.pyplot as plt
-import seaborn as sns
+import sys 
+import os
+sys.path.append('../cross_validation/')
+import cross_validation
 #PATH_TO_MOVIES = '../../data_movilens/content-based movies.csv'
 #PATH_TO_RATINGS = '../../data_movilens/content-based ratings.csv'
 PATH_TO_RATINGS='../../data_movilens/ml-latest-small/ratings.csv'
 PATH_TO_MOVIES = '../../data_movilens/ml-latest-small/movies.csv'
+NAME_CROSS_VALIDATION= 'cross_validation_parts.pickle'
 
 
 def generate_user_dataframe(rating_matrix, movies_df, user_id):
@@ -51,66 +53,102 @@ def fit(X, y,class_number, iter):
     weights = np.zeros((X.shape[1],class_number))
     bias = np.ones((class_number))
     l_rate = 0.001
-    last_mse = 1000
+    last_loss = 1000
     print(weights.shape)
     print(X.shape)
     for i in range(iter):
         y_pred = np.dot(X,weights) + bias
-        test = mse(y_pred[0], y)
-        #if last_mse - test < 0.00000000001: 
-        #    print(math.sqrt(test))
-        #    return weights, bias, test 
-        last_mse = test
         dw = (1/X.shape[0])*np.dot(X.values.T,softmax(y_pred) - onehot(y, class_number))
         db = (1/X.shape[0])*np.sum(softmax(y_pred) - onehot(y, class_number))
         weights = weights - l_rate * dw
         bias = bias - l_rate * db
         loss = -np.mean(np.log(softmax(y_pred)[np.arange(len(y)), np.vectorize(lambda x: x - 1)(y)]))
-        print(f"loss:{loss}; iter:{i}")
+        if abs(last_loss - loss)< 0.0000001: 
+            print(i)
+            return weights, bias 
 
-    return weights, bias, last_mse
+    return weights, bias 
 
-def predict(X, weights, bias):
+def calculate_prediction(X, weights, bias):
     y_pred = np.dot(X.values, weights) + bias
     soft_X = softmax(y_pred)
     max = np.argmax(soft_X, axis = 1)
     return np.vectorize(lambda x: x+1)(max)
     
-if __name__ == '__main__':
-    ratings_df = pd.read_csv(PATH_TO_RATINGS,delimiter = ',')
-    movies_df = pd.read_csv(PATH_TO_MOVIES,delimiter = ',')
-    rating_matrix= pd.pivot_table(data=ratings_df,index="userId",columns="movieId", values="rating")
-    rating_matrix = rating_matrix.reset_index(drop = True)
-    rating_matrix.index.name = "userId"
-    
-    rating_matrix_clone = rating_matrix.copy()
-    user_data = generate_user_dataframe(rating_matrix_clone,movies_df,0)
-    ud = user_data.copy()
+def user_profile_prediction(ud,index):
     ud = ud.dropna()
     ud = ud.rename(columns = {"(no genres listed)": "beta0" })
     ratings_df = ud['rating']
     genre_df = ud.drop(["movieId","rating","beta0"],axis=1)
-    #genre_ud['beta0'] = 1
     ratings_df = ratings_df.astype(int)
-    print(ratings_df)
-   # print(genre_ud)
-    weights, bias, m_error = fit(genre_df, ratings_df, 5, 20000)
-    #print(weights, bias, mse)
-    pred_y = predict(genre_df, weights, bias)
-    print(pred_y)
-    error = mse(pred_y, ratings_df)
-    print(error)
-    """
-    a1 = [[ 1.5, 2],[0.2, 3]]
-    a2 = [[ 0, 1],[1, 0]]
-    s_a1 = softmax(a1)
-    a2 = np.array(a2)
-    s_a1 = np.array(s_a1)
-    print(s_a1 - a2) 
-    coefficients, bias = fit(genre_ud, ud_ratings)
-    print(coefficients)
-    y_pred = np.dot(genre_ud, coefficients) + bias
+    weights, bias = fit(genre_df, ratings_df, 5, 20000)
+    pred_y = calculate_prediction(genre_df, weights, bias)
+    return (pred_y,index)
+
+def predict(rating_matrix, movies_df):
+    rating_matrix = rating_matrix.reset_index(drop = True)
+    rating_matrix.index.name = "userId"
+    iterable = []
+    for i, _ in rating_matrix.iterrows():
+        user_data = generate_user_dataframe(rating_matrix,movies_df,i)
+        iterable.append((user_data,i))
+
+    pool = multiprocessing.Pool(processes=6)
+    users_predictions = pool.starmap(user_profile_prediction, iterable)
+    pool.close()
+    pool.join()
+    for predictions in users_predictions: 
+        #NOTE: predictions[0] = y predictions ; predictions[1] = user_index
+        numbers_array = [num for num in range(0, rating_matrix.shape[1])]
+        rating_matrix.columns = numbers_array
+        nan_indexes = rating_matrix.iloc[predictions[1]].index[rating_matrix.iloc[predictions[1]].isna()] 
+        if nan_indexes.shape != np.array(predictions[0]).shape:
+            raise ValueError('nan_indexes and predictions arrays are not matching')
+        for i,prediction in enumerate(predictions[0]):
+            rating_matrix.iloc[predictions[1],nan_indexes[i]] = prediction
     
-    msee = mse(y_pred,ud_ratings)
-    print(msee)
-    """
+    return rating_matrix
+
+def get_not_nan_indexes(df):
+    not_nan_indexes = []
+
+    for row_idx, row in enumerate(df.index):
+        for col_idx, col in enumerate(df.columns):
+            if not pd.isna(df.loc[row, col]):
+                not_nan_indexes.append((row_idx, col_idx))
+
+    return not_nan_indexes
+
+if __name__ == '__main__':
+    ratings_df = pd.read_csv(PATH_TO_RATINGS,delimiter = ',')
+    movies_df = pd.read_csv(PATH_TO_MOVIES,delimiter = ',')
+    rating_matrix= pd.pivot_table(data=ratings_df,index="userId",columns="movieId", values="rating")
+    parts = []
+    if not os.path.exists("./"+str(NAME_CROSS_VALIDATION)):
+        parts = cross_validation.create_parts_dataset(5,131,rating_matrix)
+        with open(NAME_CROSS_VALIDATION,"wb") as file:
+            pickle.dump(parts,file)
+    else:
+        with open(NAME_CROSS_VALIDATION,"rb") as file:
+            parts = pickle.load(file)
+
+    for iteration,part in enumerate(parts):
+        rating_matrix_clone = rating_matrix.copy()
+        for rating_tuple in part:
+            row,column,rating=rating_tuple
+            rating_matrix_clone.iloc[row,column] = np.nan
+        result = predict(rating_matrix_clone,movies_df)
+
+        numbers_array = [num for num in range(0, rating_matrix.shape[1])]
+        rating_matrix_clone.columns = numbers_array
+        not_nan_indexes = get_not_nan_indexes(rating_matrix_clone)
+        
+        for index in not_nan_indexes:
+            result.iloc[index[0], index[1]] = np.nan
+
+
+        with open('../contet-based/mnl_regression'+str(iteration)+'.pickle', 'wb') as file:
+            pickle.dump(result,file)
+        print(f"iteration done:{iteration}")
+            
+

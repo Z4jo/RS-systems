@@ -4,8 +4,6 @@ import pickle
 import os
 import sys
 import multiprocessing
-
-from pandas.core.api import notnull 
 sys.path.append('../cross_validation/')
 import cross_validation
 
@@ -31,15 +29,16 @@ def mse(pred_y, y):
         total += (pred_y[i]-y.iloc[i])**2
     return (1/len(pred_y))*total
         
-def fit(X, y):
+def fit(X, y, iter):
     weights = np.zeros(X.shape[1])
     bias = 0
     l_rate = 0.01
     last_mse = 1000
-    for i in range(6000):
+    for i in range(iter):
         y_pred = np.dot(X, weights) + bias
         test = mse(y_pred, y)
-        if last_mse - test < 0.00001: 
+        if abs(last_mse - test)< 0.000001: 
+            print(i)
             return weights, bias
         last_mse = test
         
@@ -66,7 +65,7 @@ def user_profile_prediction(ud,index):
     ud_ratings = ud['rating']
     genre_ud = ud.drop(["movieId","rating","beta0"],axis=1)
 
-    coefficients, bias = fit(genre_ud, ud_ratings)
+    coefficients, bias = fit(genre_ud, ud_ratings, 200000)
     y_pred = np.dot(nan_df, coefficients) + bias
     return (y_pred,index)
 
@@ -97,15 +96,15 @@ def predict(rating_matrix,movies_df):
     return rating_matrix
     
         
-def get_nan_indexes(df):
-    non_nan_indexes = []
+def get_not_nan_indexes(df):
+    not_nan_indexes = []
 
     for row_idx, row in enumerate(df.index):
         for col_idx, col in enumerate(df.columns):
             if not pd.isna(df.loc[row, col]):
-                non_nan_indexes.append((row_idx, col_idx))
+                not_nan_indexes.append((row_idx, col_idx))
 
-    return non_nan_indexes
+    return not_nan_indexes
 
 if __name__ == '__main__':
     ratings_df = pd.read_csv(PATH_TO_RATINGS,delimiter = ',')
@@ -124,15 +123,17 @@ if __name__ == '__main__':
         rating_matrix_clone = rating_matrix.copy()
         for rating_tuple in part:
             row,column,rating=rating_tuple
-            rating_matrix_clone.iloc[row,column] = rating
+            rating_matrix_clone.iloc[row,column] = np.nan
         result = predict(rating_matrix_clone,movies_df)
         numbers_array = [num for num in range(0, rating_matrix.shape[1])]
         rating_matrix_clone.columns = numbers_array
-        not_nan_indexes = get_nan_indexes(rating_matrix_clone)
-        for nan_indexes in not_nan_indexes:
-            result.iloc[nan_indexes[0], nan_indexes[0]]= np.nan
+        not_nan_indexes = get_not_nan_indexes(rating_matrix_clone)
+        
+        for index in not_nan_indexes:
+            result.iloc[index[0], index[1]] = np.nan
 
-        with open('../linear_regression'+str(iteration)+'.pickle', 'wb') as file:
+
+        with open('../contet-based/linear_regression'+str(iteration)+'.pickle', 'wb') as file:
             pickle.dump(result,file)
         print(f"iteration done:{iteration}")
             
