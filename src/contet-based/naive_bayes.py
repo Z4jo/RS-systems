@@ -59,15 +59,15 @@ def pre_calculate_user_model(user_df,genres_column_names,values_of_genre,class_o
         all_probabilities.append(wrap)
     return all_probabilities
 
-def naive_bayes_prediciton(user_df,user_id):
+def naive_bayes_prediciton(user_df,user_id,model):
     print(user_id)
     predictions = []
     genres_column_names = np.array(user_df.columns)
     genres_column_names = genres_column_names[2:len(genres_column_names)-1]
+   #nan_indexes = rating_matrix_clone.iloc[i].index[rating_matrix_clone.iloc[i].isna()] 
     nan_indexes = user_df[user_df['rating'].isna()].index 
     class_options = [1.0,2.0,3.0,4.0,5.0]
     values_of_genre = dict()
-    #TODO: find good alpha for movielens dataset
     laplac_alpha = 0.01
     laplac_k = 2 * laplac_alpha
     nan_vectors = []
@@ -80,8 +80,8 @@ def naive_bayes_prediciton(user_df,user_id):
             prior_class_probability.append( np.log(
                     (((user_df['rating'] == class_value).sum()+laplac_alpha)/((user_df['rating']).count()+laplac_k))))
     user_df = user_df.dropna()
-    #NOTE: structure of model = [[[[],[],[],[],[]],[]],[[],[],[],[],[]]]
-    model = pre_calculate_user_model(user_df,genres_column_names,values_of_genre,class_options)
+    if model == 0:
+        model = pre_calculate_user_model(user_df,genres_column_names,values_of_genre,class_options)
   #  print(model)
     for nan_vector in nan_vectors:
   #      print(nan_vector)
@@ -94,12 +94,14 @@ def naive_bayes_prediciton(user_df,user_id):
             result = genre[binary_feature]
             sum *= result
         #base_log_probabilities = sum + prior_class_probability
-        base_probabilities = sum * prior_class_probability
+        base_probabilities = sum * np.exp(prior_class_probability)
+        #index = np.argmax(base_probabilities)
         #base_probabilities = np.exp(base_log_probabilities) 
         numerators = base_probabilities * class_options 
    #     print(f"sum:{sum},\nbase_probabilities:{base_probabilities},\nnumerators:{numerators}")
         predictions.append((numerators.sum()/base_probabilities.sum(),nan_vector[0]))
-    return (predictions,user_id)
+        #predictions.append((int(class_options[index]),nan_vector[0]))
+    return (predictions,user_id,model)
    
 if __name__ == '__main__':
     ratings_df = pd.read_csv(PATH_TO_RATINGS,delimiter = ',')
@@ -124,21 +126,24 @@ if __name__ == '__main__':
         rating_matrix_clone = rating_matrix.copy()
         for rating_tuple in part:
             row,column,rating=rating_tuple
-            rating_matrix_clone.iloc[row,column] = rating
+            rating_matrix_clone.iloc[row,column] = np.nan 
 
-        #FIX: usseles function get_indexes_of_not_empty_ratings_by_user
-        all_not_nan_indeces = get_indexes_of_not_empty_ratings_by_user(rating_matrix_clone)
         final_dataframe = rating_matrix_clone.copy()
         final_dataframe = pd.DataFrame(np.nan, index = rating_matrix_clone.index, columns = rating_matrix_clone.columns)
         iterable = []
+        model = []
+        if os.path.exists("../contet-based/naive_bayes_model"+str(iteration)+".pickle"):
+            with open("../contet-based/naive_bayes_model"+str(iteration)+".pickle",'rb') as file:
+                model = pickle.load(file)
         
-        #FIX: use iterrows instead
-        for user_index,_ in enumerate(all_not_nan_indeces):
-            user_data = generate_user_dataframe(rating_matrix_clone,movies_df,user_index)
-            iterable.append((user_data,user_index))
+        for i,_ in rating_matrix_clone.iterrows():
+            user_data = generate_user_dataframe(rating_matrix_clone,movies_df,i)
+            model_value = 0
+            if len(model) > 0:
+                model_value = model[i]
+            iterable.append((user_data,i,model_value))
 
         #user_dataframe = change_rating_to_class(user_index,user_dataframe,rating_matrix) 
-        print(iterable[0])
         pool = multiprocessing.Pool(processes=8)
         predictions = pool.starmap(naive_bayes_prediciton, iterable)
         pool.close()
@@ -147,14 +152,17 @@ if __name__ == '__main__':
         profiler.disable()
         profiler.dump_stats('profile_stats')
         # Create a pstats.Stats object
-        for predicted_list in predictions:
-            for predicted_value in predicted_list[0]:
-                final_dataframe.loc[predicted_list[1],predicted_value[1]] = predicted_value[0]
+        model = []
+        for predicted_list,user_id,user_model in predictions:
+            model.append(user_model)
+            for predicted_value,movie_id in predicted_list:
+                final_dataframe.loc[user_id,movie_id] = predicted_value
         #print(rating_matrix)
         with open("naive_bayes_prediciton"+str(iteration)+".pickle","wb") as file:
             pickle.dump(final_dataframe,file)
-        stds = final_dataframe.std(axis = 0)
-        print(stds.mean())
+
+        with open("naive_bayes_model"+str(iteration)+".pickle","wb") as file:
+            pickle.dump(model,file)
     
     stats = pstats.Stats('profile_stats')
     stats.print_stats()

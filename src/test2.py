@@ -1,17 +1,18 @@
+import pandas as pd
 import numpy as np
+import math
+import sys
+import pickle
+import os 
 
-d = dict()
-d[0] = 2
-d[1] = 2
-d[1] = 2
-t = (1,1,1)
-d = (2,2,2)
-a = [0,0,0]
+PATH_TO_RESULTS = './contet-based/results/'
 
-result = a + np.array(t)
-print(result)
-result +=  np.array(t)
-result = result * d
-print(result)
-t = t + d
-print(t)
+for index, filename in enumerate(os.listdir(PATH_TO_RESULTS)):
+            filepath = os.path.join(PATH_TO_RESULTS, filename)
+            print(filename)
+            recommendation = 0
+            with open(filepath, 'rb') as file:
+                recommendation = pickle.load(file)
+            print(recommendation)
+            
+
