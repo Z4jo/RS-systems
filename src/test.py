@@ -1,69 +1,71 @@
 import random as rnd
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.naive_bayes import BernoulliNB
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import accuracy_score
-from sklearn.naive_bayes import GaussianNB
-from sklearn.naive_bayes import ComplementNB
-PATH_TO_RATINGS='../data_movilens/ml-latest-small/ratings.csv'
-PATH_TO_MOVIES = '../data_movilens/ml-latest-small/movies.csv'
+import re
+with open('./cross_validation/results.csv','r') as file:
+    f = file 
+    
+    rows = 9
+    cols = 7
+    mean = [[0 for _ in range(cols)] for _ in range(rows)]   
+    name = ""
+    start = -1
+    for line in f:
+        splited_line = line.split(",")
 
-def generate_user_dataframe(rating_matrix, movies_df, user_id):
-    #user_ratings_df = rating_matrix.iloc[user_id,rating_matrix.columns.isin(movies_id)]
-    user_ratings_df = rating_matrix.iloc[user_id]
-    user_ratings_df = user_ratings_df.to_frame('rating').reset_index()
-    movie_id_indeces = user_ratings_df['movieId']
-    filtered_movies_df = movies_df[movies_df['movieId'].isin(movie_id_indeces)]
-    genres_df = filtered_movies_df['genres'].str.get_dummies('|')
-    genres_id = pd.concat([filtered_movies_df['movieId'],genres_df], axis = 1)
-    merged_df = pd.merge(genres_id, user_ratings_df, on='movieId', how='left')
-    #return merged_df.drop(['userId','timestamp'],axis = 1)
-    return merged_df
+        splited_name = re.split(r'_|\.',splited_line[0],flags=re.MULTILINE | re.DOTALL)
+        print(splited_name)
+        number_of_iteration = splited_name[len(splited_name)-2]
 
-ratings_df = pd.read_csv(PATH_TO_RATINGS,delimiter = ',')
-movies_df = pd.read_csv(PATH_TO_MOVIES,delimiter = ',')
-rating_matrix= pd.pivot_table(data=ratings_df,index="userId",columns="movieId", values="rating")
-rating_matrix = rating_matrix.reset_index(drop = True)
-rating_matrix.index.name = "userId"
-user_dataframe = generate_user_dataframe(rating_matrix,movies_df,0)
-nan_indexes = user_dataframe[user_dataframe['rating'].isna()].index 
-nan_vectors = []
-for nan_index in nan_indexes:
-    full_vector = user_dataframe.iloc[nan_index]
-    nan_vectors.append(full_vector[2:21])
-nan_df = pd.DataFrame(nan_vectors)
-print(nan_df)
+        if len(number_of_iteration) > 1 or int(number_of_iteration) == 0:
+            continue
+        if splited_name[0] != name:
+            start += 1
+            name = splited_name[0]
+        for i in range(1,len(splited_line)):
+            mean[start][i-1]+=float(splited_line[i])
+            #print(mean[start][i-1])
 
-user_dataframe = generate_user_dataframe(rating_matrix,movies_df,0)
-user_dataframe = user_dataframe.dropna()
-X = user_dataframe.iloc[:,2:21]
-y = user_dataframe.iloc[:,21]
-#X_train, X_test, y_train, y_test =train_test_split(X,y)
-#print(X_test)
-#print(X_train)
-#sc_X = StandardScaler() 
-#X_train = sc_X.fit_transform(X)
-#X_test = sc_X.fit_transform(X)
-classifer = BernoulliNB()
-# training the model
-#print(X)
-classifer.fit(X, y)
-# testing the model
+    #print(mean[0])
+    #print(mean[1])
+    #print(mean[2])
+    #print(mean[3])
+    #print(mean[4])
+    #print(mean[5])
+    #print(mean[6])
+    #print(mean[7])
+    #print(mean[8])
+    #print(mean[0][0])
+    #print("-------------------")
+     
+    for i in range(cols):
+        #print(f"0;{i} mean:{mean[0][i]}, mean/4: {mean[0][i]/4}")
+        mean[0][i] = mean[0][i]/4
+        #print(f"1;{i} mean:{mean[1][i]}, mean/4: {mean[1][i]/4}")
+        mean[1][i] = mean[1][i]/4
+        #print(f"2;{i} mean:{mean[2][i]}, mean/4: {mean[2][i]/4}")
+        mean[2][i]= mean[2][i]/4
+        #print(f"3;{i} mean:{mean[3][i]}, mean/4: {mean[3][i]/4}")
+        mean[3][i]= mean[3][i]/4
+        #print(f"4;{i} mean:{mean[4][i]}, mean/4: {mean[4][i]/4}")
+        mean[4][i]= mean[4][i]/4
+        #print(f"5;{i} mean:{mean[5][i]}, mean/4: {mean[5][i]/4}")
+        mean[5][i]= mean[5][i]/4
+       # print(f"6;{i} mean:{mean[6][i]}, mean/4: {mean[6][i]/4}")
+        mean[6][i]= mean[6][i]/4
+       # print(f"7;{i} mean:{mean[7][i]}, mean/4: {mean[7][i]/4}")
+        mean[7][i]= mean[7][i]/4
+       # print(f"8;{i} mean:{mean[8][i]}, mean/4: {mean[8][i]/4}")
+        mean[8][i]= mean[8][i]/4
 
-y_pred = classifer.predict(nan_df)
-std = y_pred.std()
-print(len(y_pred))
-print(y_pred)
-print(std)
-
-#print(accuracy_score(y_pred, y_test))
-
-# create a Gaussian Classifier
-classifer1 = GaussianNB()
-# training the model
-# testing the model
-# printing the accuracy of the model
+    print(mean[0])
+    print(mean[1])
+    print(mean[2])
+    print(mean[3])
+    print(mean[4])
+    print(mean[5])
+    print(mean[6])
+    print(mean[7])
+    print(mean[8])
+        
 

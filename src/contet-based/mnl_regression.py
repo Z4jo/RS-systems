@@ -35,11 +35,6 @@ def mse(pred_y, y):
         total += (pred_y[i]-y.iloc[i])**2
     return (1/len(pred_y))*total
 
-def logistic_function(coefficients, independent_values, intercept):
-    beta_x = np.dot(coefficients, independent_values)
-    constant = np.power(np.e, (-intercept + beta_x))
-    return 1 / (1+constant)
-
 def onehot(ratings, num_classes):
     encoded = np.zeros((len(ratings), num_classes))
     ratings_adjusted = ratings - 1
@@ -100,6 +95,20 @@ def model_generation(ud,index):
     return (index,weights,bias)
 
 
+def user_profile_predictions_unlcean(all_users_dataframes,model,rating_matrix):
+    rating_matrix_clone = rating_matrix.copy()
+    numbers_array = [num for num in range(0, rating_matrix_clone.shape[1])]
+    rating_matrix_clone.columns = numbers_array
+    for ud,i in all_users_dataframes:
+        ud = ud.rename(columns = {"(no genres listed)": "beta0" })
+        nan_df = ud[ud['rating'].isna()].drop(["movieId","rating","beta0"],axis=1)
+        weights, bias = model[i]
+        y_pred = calculate_prediction(nan_df, weights, bias)
+        nan_indexes = rating_matrix_clone.iloc[i].index[rating_matrix_clone.iloc[i].isna()] 
+        if y_pred.shape == nan_indexes.shape:
+            rating_matrix_clone.iloc[i,nan_indexes] = y_pred
+    return rating_matrix_clone
+
 def user_profile_predictions(all_users_dataframes,model,rating_matrix):
     rating_matrix_clone = rating_matrix.copy()
     numbers_array = [num for num in range(0, rating_matrix_clone.shape[1])]
@@ -114,34 +123,6 @@ def user_profile_predictions(all_users_dataframes,model,rating_matrix):
         if y_pred.shape == nan_indexes.shape:
             result_matrix.iloc[i,nan_indexes] = y_pred
     return result_matrix
-
-def predict(rating_matrix, movies_df, iteration):
-    rating_matrix = rating_matrix.reset_index(drop = True)
-    rating_matrix.index.name = "userId"
-    iterable = []
-    for i, _ in rating_matrix.iterrows():
-        user_data = generate_user_dataframe(rating_matrix,movies_df,i)
-        iterable.append((user_data,i))
-
-    pool = multiprocessing.Pool(processes=8)
-    users_predictions = pool.starmap(user_profile_predictions, iterable)
-    pool.close()
-    pool.join()
-    model = []
-    for predictions in users_predictions: 
-        numbers_array = [num for num in range(0, rating_matrix.shape[1])]
-        rating_matrix.columns = numbers_array
-        nan_indexes = rating_matrix.iloc[predictions[1]].index[rating_matrix.iloc[predictions[1]].isna()] 
-        if nan_indexes.shape != np.array(predictions[0]).shape:
-            raise ValueError('nan_indexes and predictions arrays are not matching')
-        for i,prediction in enumerate(predictions[0]):
-            rating_matrix.iloc[predictions[1],nan_indexes[i]] = prediction
-        model.append((predictions[2],predictions[3]))
-
-    with open ('../contet-based/mnl_model'+str(iteration)+'.pickle','wb') as file: 
-        pickle.dump(model,file)
-
-    return rating_matrix
 
 def get_not_nan_indexes(df):
     not_nan_indexes = []
@@ -192,10 +173,11 @@ if __name__ == '__main__':
         rating_matrix_clone.index.name = "userId"
 
         all_users_dataframes = get_all_users_dataframe(rating_matrix_clone.copy(),movies_df)
+       
         result = user_profile_predictions(all_users_dataframes,model,rating_matrix_clone)
 
-        with open('../contet-based/mnl_regression'+str(iteration)+'.pickle', 'wb') as file:
-            pickle.dump(result,file)
-        print(f"iteration done:{iteration}")
+        #with open('../contet-based/mnl_regression'+str(iteration)+'.pickle', 'wb') as file:
+        #    pickle.dump(result,file)
+        #print(f"iteration done:{iteration}")
             
 

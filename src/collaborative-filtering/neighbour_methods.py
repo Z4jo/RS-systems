@@ -11,6 +11,7 @@ sys.path.append('../data_procession/')
 sys.path.append('../math_functions/')
 import sim_func
 import cross_validation
+
 #PATH_TO_DATA='../../data_movilens/test.csv'
 PATH_TO_DATA='../../data_movilens/ml-latest-small/ratings.csv'
 

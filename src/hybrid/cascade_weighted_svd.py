@@ -9,6 +9,7 @@ sys.path.append('../contet-based/')
 sys.path.append('../hybrid/')
 import cross_validation
 import svd
+import svd_demo
 import weighted_regression
 import linear_regression
 import mnl_regression
@@ -68,15 +69,15 @@ if __name__ == '__main__':
         mnl_regression_cmp = mnl_regression.user_profile_predictions(all_users_dataframes,mnl_regression_model,rating_matrix_clone)
         linear_regression_cmp = linear_regression.user_profile_predictions(all_users_dataframes,linear_regression_model,rating_matrix_clone) 
         X, coordinates = weighted_regression.create_X(rating_matrix_clone,mnl_regression_cmp,linear_regression_cmp)
-        y_pred = weighted_regression.predict(X,model,coordinates,rating_matrix_clone)
+        y_pred = weighted_regression.predict_unclean(X,model,coordinates,rating_matrix_clone)
         reconstructed_ratings = svd.predict(y_pred)
-        final_df = svd.clear_result(reconstructed_ratings,rating_matrix_clone)
+        final_df = svd_demo.clear_result(user_id,reconstructed_ratings,rating_matrix_clone)
         
 
         print("final")
         print(final_df)
 
-        with open('../hybrid/cascande_weighted_svd'+str(iteration)+'.pickle','wb') as file:
+        with open('../hybrid/cascande_weighted_svd_2_'+str(iteration)+'.pickle','wb') as file:
             pickle.dump(final_df,file)
         
         print(f"iteration done:{iteration}")

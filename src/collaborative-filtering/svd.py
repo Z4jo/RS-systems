@@ -11,15 +11,6 @@ PATH_TO_DATA='../../data_movilens/ml-latest-small/ratings.csv'
 #NOTE: TEST DATASET
 #PATH_TO_DATA='../../data_movilens/testSVD.csv'
 
-def get_not_nan_indexes(df):
-    not_nan_indexes = []
-
-    for row_idx, row in enumerate(df.index):
-        for col_idx, col in enumerate(df.columns):
-            if not pd.isna(df.loc[row, col]):
-                not_nan_indexes.append((row_idx, col_idx))
-
-    return not_nan_indexes
 
 def predict(rating_matrix):
     mean = rating_matrix.mean(1)
@@ -35,11 +26,13 @@ def predict(rating_matrix):
     return pd.DataFrame(reconstructed_matrix)
 
 def clear_result(df,rating_matrix):
+    rating_matrix = rating_matrix.reset_index(drop = True)
+    rating_matrix.index.name = "userId"
     numbers_array = [num for num in range(0, rating_matrix.shape[1])]
     rating_matrix.columns = numbers_array
-    not_nan_indexes = get_not_nan_indexes(rating_matrix)
-    for index in not_nan_indexes:
-        df.iloc[index[0], index[1]] = np.nan
+    df.columns = numbers_array
+    mask = rating_matrix.notna()
+    df[mask] = np.nan
     return df
 
 if __name__ == '__main__':
@@ -62,6 +55,5 @@ if __name__ == '__main__':
             rating_matrix_clone.iloc[row,column] = np.nan
         reconstructed_df = predict(rating_matrix_clone.copy())
         cleared_df = clear_result(reconstructed_df,rating_matrix_clone.copy()) 
-
         with open("model_svd_"+str(iteration)+".pickle","wb") as file:
             pickle.dump(cleared_df,file)

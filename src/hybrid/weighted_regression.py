@@ -89,6 +89,18 @@ def predict(X, weights, coordinates, rating_matrix):
         result_matrix.iloc[coordinates[i][0],coordinates[i][1]] = y
     return result_matrix
 
+def predict_unclean(X, weights, coordinates, rating_matrix):
+    y_pred = 0
+    rating_matrix_clone = rating_matrix.copy()
+    numbers_array = [num for num in range(0, rating_matrix_clone.shape[1])]
+    rating_matrix_clone.columns = numbers_array
+    for i,ratings in enumerate(X):
+        y_pred += np.dot(ratings,weights[i])
+    for i,y in enumerate(y_pred):
+        rating_matrix_clone.iloc[coordinates[i][0],coordinates[i][1]] = y
+    return rating_matrix_clone
+
+
 if __name__ == '__main__':
     dataframe=pd.read_csv(PATH_TO_RATINGS,delimiter=',')
     rating_matrix= pd.pivot_table(data=dataframe,index="userId",columns="movieId", values="rating")
@@ -173,7 +185,7 @@ if __name__ == '__main__':
         predictions = predict(X, model, coordinates, rating_matrix_clone)
         print(predictions)
 
-        with open('../hybrid/weighted_regression2'+str(iteration)+'.pickle','wb') as file:
+        with open('../hybrid/weighted_regression'+str(iteration)+'.pickle','wb') as file:
             pickle.dump(predictions,file)
         print(f"iteration end:{iteration}") 
      

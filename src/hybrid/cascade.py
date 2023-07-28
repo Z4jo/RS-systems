@@ -48,11 +48,11 @@ if __name__ == '__main__':
         rating_matrix_clone.index.name = "userId"       
 
         all_users_dataframes = mnl_regression.get_all_users_dataframe(rating_matrix_clone.copy(),movies_df)
-        y_pred = mnl_regression.user_profile_predictions(all_users_dataframes,model,rating_matrix_clone)
+        y_pred = mnl_regression.user_profile_predictions_unlcean(all_users_dataframes,model,rating_matrix_clone)
         reconstructed_ratings = svd.predict(y_pred)
         final_df = svd.clear_result(reconstructed_ratings,rating_matrix_clone)
         
-        with open('../hybrid/cascade_mnl_svd'+str(iteration)+'.pickle','wb') as file:
+        with open('../hybrid/cascade_mnl_svd_2_'+str(iteration)+'.pickle','wb') as file:
             pickle.dump(final_df,file)
     
         print(f"iteration done:{iteration}")
