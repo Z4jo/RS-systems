@@ -1,4 +1,3 @@
-from unicodedata import name
 import numpy as np
 import pandas as pd
 import pickle
@@ -7,15 +6,11 @@ import os
 import multiprocessing 
 import cProfile
 import pstats
-import io
-from scipy.linalg import svd
 sys.path.append('../cross_validation/')
 sys.path.append('../data_procession/')
 sys.path.append('../math_functions/')
 import sim_func
 import cross_validation
-import preprocessing
-
 #PATH_TO_DATA='../../data_movilens/test.csv'
 PATH_TO_DATA='../../data_movilens/ml-latest-small/ratings.csv'
 
@@ -66,24 +61,12 @@ def get_indexes_of_not_empty_ratings_by_item(rating_matrix):
         not_emnpty_column_vectors.append(not_empty_indexes)
     return not_emnpty_column_vectors 
 
-def get_indexes_of_not_empty_ratings_by_user(rating_matrix):
-    not_emnpty_column_vectors = []
-    for row in range(len(rating_matrix)): 
-        not_empty_indexes=[] 
-        for column,_ in enumerate(rating_matrix.columns):
-            cell_value=rating_matrix.iloc[row,column]
-            if not np.isnan(cell_value):
-                not_empty_indexes.append(column) 
-        print(not_empty_indexes)
-        not_emnpty_column_vectors.append(not_empty_indexes)
-    return not_emnpty_column_vectors 
-
-def get_indexes_of_not_empty_ratings_by_user2(df):
-    array_of_arrays = []
+def get_indexes_of_not_empty_ratings_by_user(df):
+    all_not_nan_indeces = []
     for _,row in df.iterrows():
         non_nan_indexes = [col for col, value in enumerate(row.values) if pd.notnull(value)]
-        array_of_arrays.append(non_nan_indexes)
-    return array_of_arrays
+        all_not_nan_indeces.append(non_nan_indexes)
+    return all_not_nan_indeces
 
 def get_indexes_of_missing_ratings_by_item(column_index,rating_matrix):
     missing_indexes=[]
@@ -124,7 +107,7 @@ def predict_ratings_user_based(user_index, missing_entries, column_vectors, rati
     intersection_rating = get_ratings_by_user(rating_matrix,all_user_intersections,user_index)
     for rating in intersection_rating:
         #NOTE: UNCOMENT FOR COSINE SIMILARTIY
-        #similarities.append((sim_func.raw_cosine(rating[0],rating[1]),rating[2]))
+        #similarities.append((sim_func.adjusted_cosine(rating[0],rating[1]),rating[2]))
         #NOTE: UNCOMENT FOR PEARSON_COEFICIENT 
         similarities.append((sim_func.pearson_coefficient(rating[0],rating[1]),rating[2]))
     sorted_similarities= sorted(similarities, key=lambda x: x[0],reverse=True)
@@ -145,14 +128,14 @@ def predict_ratings_user_based(user_index, missing_entries, column_vectors, rati
 
 def predict_ratings_item_based(item_index,missing_entries,column_vectors,rating_matrix):
     similarities = []
-    predictions = []
+    result_series = pd.Series([np.nan] * 610)
     top_k_sim = -1
     all_item_intersections= get_intersection(column_vectors,item_index)
     intersection_rating = get_ratings_by_item(rating_matrix,all_item_intersections,item_index)
     similarities = sorted(similarities, key = lambda x: x[0], reverse = True)
     for rating in intersection_rating:
         #NOTE:UNCOMENT FOR COSINE SIMILARTIY 
-        similarities.append((sim_func.raw_cosine(rating[0],rating[1]),rating[2])) 
+        similarities.append((sim_func.adjusted_cosine(rating[0],rating[1]),rating[2])) 
         #NOTE:UNCOMENT FOR PEARSON_COEFICIENT 
         #similarities.append((sim_func.pearson_coefficient(rating[0],rating[1]),rating[2]))
     for missing_rating_index in missing_entries:
@@ -167,13 +150,9 @@ def predict_ratings_item_based(item_index,missing_entries,column_vectors,rating_
             if sim == 0:
                 continue
             outcome = numerator / sim 
-            prediction = (missing_rating_index,item_index,outcome)
-            predictions.append(prediction)
-            if(missing_rating_index== 398 and item_index ==0):
-                print('yo')
-                print(prediction)
-
-    return predictions
+            result_series.iloc[missing_rating_index] = outcome 
+    return result_series
+            
 
 def item_based_setup(rating_matrix,number_of_iteration):
     missing_indeces = []
@@ -195,10 +174,11 @@ def item_based_setup(rating_matrix,number_of_iteration):
     for item_index,missing_entries in enumerate(missing_indeces):
         iterable.append((item_index,missing_entries,user_rating_indexes,rating_matrix))
     pool = multiprocessing.Pool(processes=8)
-    results = pool.starmap(predict_ratings_item_based,iterable)
+    series = pool.starmap(predict_ratings_item_based,iterable)
     pool.close()
     pool.join()
-    return results
+    final_dataframe = pd.DataFrame(series)
+    return final_dataframe.T
 
 def user_based_setup(rating_matrix, number_of_iteration):
     missing_indices = [np.where(row.isnull())[0] for _, row in rating_matrix.iterrows()]
@@ -207,7 +187,7 @@ def user_based_setup(rating_matrix, number_of_iteration):
     print(name_of_pickle_file)
     file_path = os.path.join('./', name_of_pickle_file)  # Construct the full file path
     if not os.path.exists(file_path):
-        item_rating_indexes =  get_indexes_of_not_empty_ratings_by_user2(rating_matrix)
+        item_rating_indexes =  get_indexes_of_not_empty_ratings_by_user(rating_matrix)
         print(item_rating_indexes)
         with open(name_of_pickle_file, 'wb') as file:
             pickle.dump(item_rating_indexes,file)
@@ -226,8 +206,8 @@ def user_based_setup(rating_matrix, number_of_iteration):
 if __name__ == '__main__':
     dataframe=pd.read_csv(PATH_TO_DATA,delimiter=',')
     rating_matrix= pd.pivot_table(data=dataframe,index="userId",columns="movieId", values="rating")
-    print(rating_matrix)
-    
+    print(rating_matrix.shape)
+     
     parts = []
    
     if not os.path.exists("./cross_validation_parts.pickle"):
@@ -237,7 +217,7 @@ if __name__ == '__main__':
     else:
         with open("cross_validation_parts.pickle","rb") as file:
             parts = pickle.load(file)
-    
+   
     profiler = cProfile.Profile()
     for iteration, part in enumerate(parts):
         rating_matrix_clone = rating_matrix.copy()
@@ -245,8 +225,8 @@ if __name__ == '__main__':
             row,column,rating=rating_tuple
             rating_matrix_clone.iloc[row,column] = np.nan
         profiler.enable()
-        result_prediction = user_based_setup(rating_matrix_clone,iteration)
-        #result_prediction = item_based_setup(rating_matrix_clone,iteration)
+        #result_prediction = user_based_setup(rating_matrix_clone,iteration)
+        result = item_based_setup(rating_matrix_clone,iteration)
         profiler.disable()
         profiler.dump_stats('profile_stats')
         # Create a pstats.Stats object
@@ -254,8 +234,8 @@ if __name__ == '__main__':
         # Print the statistics
         stats.print_stats()
         #WARN: depends on the algo
-        with open("user_based_results_pearson_test_-1"+str(iteration)+".pickle", 'wb') as file:
-            pickle.dump(result_prediction,file)
+        with open("item_based_results_cosine_test_10_"+str(iteration)+".pickle", 'wb') as file:
+            pickle.dump(result,file)
 """
  #NOTE: for tests
 

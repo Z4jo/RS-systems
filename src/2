@@ -1,223 +1,152 @@
-import numpy as np
+import numpy as np 
 import pandas as pd
-import pickle
-import sys
-from multiprocessing import Pool
-import cProfile
-from scipy.stats import pearsonr
-sys.path.append('../cross_validation/')
-sys.path.append('../data_procession/')
-sys.path.append('../math_functions/')
-import sim_func
-import cross_validation
-import preprocessing
-
-#PATH_TO_DATA='../../data_movilens/test.csv'
-PATH_TO_DATA='../../data_movilens/ml-latest-small/ratings.csv'
- 
-def get_ratings(rating_matrix,intersections,index_active_user):
-    users_ratings= []
-    for intersection in intersections:
-        ratings_neighbour=[]
-        ratings_active_user=[]
-        for column in intersection[0]:
-            #print("column-main-user:{} row_m_u:{} raiting_m_u:{} column_u:{} row_u:{} rating_u:{}"
-            #.format(column-1,index_main_user,rating_matrix.iloc[index_main_user,column-1],column-1,row,rating_matrix.iloc[row,column-1]))
-            ratings_neighbour.append(rating_matrix.iloc[intersection[1],column])
-            ratings_active_user.append(rating_matrix.iloc[index_active_user,column])
-        
-        users_ratings.append((ratings_neighbour,ratings_active_user,intersection[1]))
-    return users_ratings        
-
-def get_intersection(vectors, active_user_index,missing_rating_index):
-    intersections = []
-    for i,user_rating_indexes in enumerate(vectors):
-    #    print(f"loop row_index:{i}, missing_index:{missing_rating_index},active_user_index:{active_user_index},user_index{user_index}") 
-        if missing_rating_index in user_rating_indexes:
-            intersection =(np.intersect1d(vectors[active_user_index], user_rating_indexes),i)
-            #intersections.append((list(set(user_index).intersection(set(vectors[active_user_index]))),i))
-            if len(intersection[0])>1:
-                intersections.append(intersection)
-    return intersections 
-
-def get_indexes_of_missing_ratings(user_id,rating_matrix):
-    missing_indexes = []
-    for column in range(len(rating_matrix.columns)):
-        cell_value = rating_matrix.iloc[user_id,column]
-        if np.isnan(cell_value):
-           missing_indexes.append((column,user_id))
-    print(missing_indexes)
-    return missing_indexes
+import math 
+import pickle 
+from sklearn.linear_model import LinearRegression
+import matplotlib.pyplot as plt
+import seaborn as sns
+#PATH_TO_MOVIES = '../../data_movilens/content-based movies.csv'
+#PATH_TO_RATINGS = '../../data_movilens/content-based ratings.csv'
+PATH_TO_RATINGS='../../data_movilens/ml-latest-small/ratings.csv'
+PATH_TO_MOVIES = '../../data_movilens/ml-latest-small/movies.csv'
 
 
-def get_indexes_of_not_empty_columns(rating_matrix):
-    not_emnpty_column_vectors = []
-    for row in range(len(rating_matrix)): 
-        not_empty_indexes=[] 
-        for column,_ in enumerate(rating_matrix.columns):
-            cell_value=rating_matrix.iloc[row,column]
-            if not np.isnan(cell_value):
-                not_empty_indexes.append(column) 
-        not_emnpty_column_vectors.append(not_empty_indexes)
-    return not_emnpty_column_vectors    
+def generate_user_dataframe(rating_matrix, movies_df, user_id):
+    user_ratings_df = rating_matrix.iloc[user_id]
+    user_ratings_df = user_ratings_df.to_frame('rating').reset_index()
+    movie_id_indeces = user_ratings_df['movieId']
+    filtered_movies_df = movies_df[movies_df['movieId'].isin(movie_id_indeces)]
+    genres_df = filtered_movies_df['genres'].str.get_dummies('|')
+    genres_id = pd.concat([filtered_movies_df['movieId'],genres_df], axis = 1)
+    merged_df = pd.merge(genres_id, user_ratings_df, on='movieId', how='left')
+    return merged_df
 
-def get_top_k_users(similarities,size):
-    sorted_list = sorted(similarities, key=lambda x: x[0],reverse=True)
-    if size > len(sorted_list):
-        return []
-
-    devided_lists= [similarities[i:i+size] for i in range(0, len(similarities), size)]
-    return devided_lists[0]
-
-def predict_ratings_for_user(user_args):
-    user=user_args[0]
-    column_vectors=user_args[1]
-    rating_matrix=user_args[2]
-    predictions=[]
-    #    print(f"user_index:{user}")
-    missing_ratings_indexes=get_indexes_of_missing_ratings(user,rating_matrix)
-    print(missing_ratings_indexes)
-    intersections=np.intersect1d(missing_ratings_indexes,column_vectors)
-    print(intersections)
-        #print(f"missing_ratings:{missing_ratings_indexes}")
-#    for missing_rating_index in missing_ratings_indexes:
-            #missing rating index was tuple
-            #intersection_user_rating=get_intersection(column_vectors,user,missing_rating_index) 
-    #        print(f"intersection_user_rating:{intersection_user_rating}")
-    """
-            ratings_user=get_ratings(updated_rating_matrix,intersection_user_rating,user)
-    #        print(f"rating: {ratings_user}, user:{user}")
-            similarities=[]
-            for rating in ratings_user:
-                if len(rating[0])==0:
-                    continue
-                #similarities.append((sim_func.pearson_coeficient(rating[0],rating[1]),rating[2]))
-                similarities.append((sim_func.raw_cosine(rating[0],rating[1]),rating[2]))
-                #print(rating)
-                #correlation_matrix = np.corrcoef(rating[0], rating[1])
-                #correlation = correlation_matrix[0, 1]
-                #similarities.append((correlation,rating[2]))
-            #with open('similiaritie_cosine_raw_user_based.pickle', 'ab') as file:
-            #    pickle.dump(similarities,file)
-    #        print(similarities)
-
-            top_k_users=get_top_k_users(similarities,5)
-            numerator=0
-            sim=0
-
-            if len(top_k_users) == 0:
-                continue
-            COMMENT THIS OUT
-            uncomment for average
-                numerator = 1
-                sim = 1
- 
-            #print(top_k_users) 
+def gradiant_descent(step_change, number_of_iterations, parameters, ratings, predictions):
+    iter = 0 
+    while iter < number_of_iterations:
+        updated_parameters = []
+        loss_value = loss_function(ratings, predictions)
+        for parameter in parameters:
+            updated_parameter = parameter - step_change * loss_value
+            updated_parameters.append(updated_parameter)
             
-            for similarity in top_k_users:
-                 #print(f"rating_matrix_value:{rating_matrix.iloc[similarity[1],missing_rating_index[0]]},sim:{similarity[0]},column:{missing_rating_index[0]}, user:{similarity[1]}")
-                 numerator+=similarity[0]*(rating_matrix.iloc[similarity[1], missing_rating_index]-users_mean.iloc[similarity[1]])
-                 sim+=similarity[0]
+        iter += 1
 
-            predictions.append((user,missing_rating_index,users_mean.iloc[user]+(numerator/sim)))
+#def prediction(genre_ud, ratings):
 
-    return predictions         
-           #print(f"numerator:{numerator},sim:{sim}")
+def softmax(predictions):
+    exp_vals = np.exp(predictions)
+    result = []
+    for i in exp_vals:
+        sum = np.sum(i)
+        result.append(i/sum)
+    return result
 
-            #print(f"prediction:{prediction}")
-    #with open('predictions_user_based_cosine_raw.pickle', 'rb') as file:
-        #column_vectors=pickle.load(file)
-"""
+def get_partial_derivatives(predictions, errors, index):
+    sum = 0
+    x = predictions.iloc[index]
+    if index == 0:
+        x = 1
+    for error in errors:
+        sum += error * x
+    return (1/len(errors))*sum
+   
+
+def get_errors(predictions, actual_ratings):
+    error = []
+    for i in range(len(predictions)):
+        error.append(predictions.iloc[i] - actual_ratings.iloc[i])
+    return error
+
+def predict(coefficient, parameters):
+    sum = coefficient[0]
+    for i,parameter in enumerate(parameters):
+        sum+=parameter * coefficient[i+1]
+    return sum 
+
+#WARN: mby ud have different name
+def gradiant_descent_l(coefficients,predictions,actual_ratings,ud):
+    step_size = 0.1 
+    iterations_number = 100
+    i = 0
+    errors = get_errors(predictions, actual_ratings)
+    updated_coeficient = []
+    while(i < iterations_number): 
+        updated_coefficients  = []
+        for j,coefficient in enumerate(coefficients):
+            update_value = get_partial_derivatives(predictions, errors,j)
+            updated_coeficient = coefficient - step_size * update_value
+            updated_coefficients.append(updated_coeficient)
+        predictions = []
+        for parameters in ud.iterrows():
+            predictions.append(predict(updated_coefficients, parameters))
+        predictions = pd.Series(predictions)
+        print(i)
+        i+=1
+    return updated_coeficient
+        
+         
+def loss_function(ratings, predictions):
+    softmax_values = softmax(predictions)
+    softmax_values = np.log(softmax_values)
+    #print(softmax_values)
+    chosen_values = [] 
+    for i,rating in enumerate(ratings):
+        #WARNING: ADD -1 TO RATING
+        chosen_values.append(softmax_values[i][rating])
+    #print(chosen_values)
+    return np.sum(chosen_values)
+        
 
 if __name__ == '__main__':
-    dataframe=pd.read_csv(PATH_TO_DATA,delimiter=',')
-    rating_matrix= pd.pivot_table(data=dataframe,index="userId",columns="movieId", values="rating")
-    print(rating_matrix)
-    users_indexes=[0]
-    column_vectors=0
-    users_mean= rating_matrix.mean(1)
-    result = cross_validation.create_parts_dataset(5,131,rating_matrix,0)
-    #column_vectors = cross_validation.get_indexes_of_not_empty_ratings(result[1])
-    with open('column_vectors_form_updated_matrix.pickle', 'rb') as file:
-        column_vectors=pickle.load(file)
-    predictions = []
-    updated_rating_matrix = result[1]
-    user_args=(users_indexes,column_vectors,updated_rating_matrix) 
-     # Create a cProfile object
-    profiler = cProfile.Profile()
-    predict_ratings_for_user(user_args)
-    profiler.disable()
-    profiler.print_stats()
-"""
-    # Start profiling
-    profiler.enable()
-
-    num_processes = 1
+    ratings_df = pd.read_csv(PATH_TO_RATINGS,delimiter = ',')
+    movies_df = pd.read_csv(PATH_TO_MOVIES,delimiter = ',')
+    rating_matrix= pd.pivot_table(data=ratings_df,index="userId",columns="movieId", values="rating")
+    rating_matrix = rating_matrix.reset_index(drop = True)
+    rating_matrix.index.name = "userId"
     
-    # Create a multiprocessing Pool
-    pool = Pool(num_processes)
+    rating_matrix_clone = rating_matrix.copy()
+    user_data = generate_user_dataframe(rating_matrix_clone,movies_df,0)
+    ud = user_data.copy()
+    ud = ud.dropna()
+    ud = ud.rename(columns = {"(no genres listed)": "beta0" })
+    ud_ratings = ud['rating']
+    genre_ud = ud.drop(["movieId","rating"],axis=1)
+
+    coefficients = np.full(genre_ud.shape[1],0.04)
+    genre_ud['beta0'] = 1
+    genre_ud = genre_ud.apply(lambda x: x+0.01)
+    result = genre_ud * coefficients
+    sum = result.sum(axis = 1)
+    result = np.power(np.e,sum)
+    result = result.apply(lambda x: x/(1+x))
+   # print(genre_ud)
+    #final_model = gradiant_descent_l(coefficients,result,ud_ratings,genre_ud)
+    sum = 0
+    for row in genre_ud.iterrows():
+        for i,parameter in enumerate(row):
+            print(parameter[0])
+   #         print(coefficients[i])
+            sum +=  coefficients[i] * parameter
+
+
+    #print(final_model)
+
+    #y = np.array([0, 2, 2, 0, 1])
+    #x = np.array([[0.13, 0.1, 1.3, -1.27, -2.33], [-0.13, -0.54, 0.95, -0.62, -0.22], [0.64, 0.36, -0.7, 0.04, -1.25]])
+    #x = np.array([[0.13, -0.13, 0.64], [0.1, -0.54, 0.36], [1.3, 0.95, -0.7], [-1.27, -0.62, 0.04], [-2.33, -0.22, -1.25]])
+    #result = loss_function(y,x)
+
+""" 
+    user_data = generate_user_dataframe(rating_matrix_clone,movies_df,20)
+    ud = user_data.copy()
+    ud = ud.dropna()
+    ud = ud.rename(columns = {"(no genres listed)": "beta0" })
+    ud_ratings = ud['rating']
+    genre_ud = ud.drop(["movieId","rating"],axis=1)
+        print(result)
     
-    # Use the multiprocessing Pool to map the predict_user function to the list of users_indexes
-    results = pool.map(predict_ratings_for_user,user_args) 
-    
-    # Close the multiprocessing Pool to free resources
-    pool.close()
-    pool.join()
-    
-    # Concatenate the results from all processes into a single list of predictions
-    #predictions = [item for sublist in results for item in sublist]
-    
-    #print(predictions)
-    # Stop profiling
-    profiler.disable()
+       
 
-    # Print the profiling results
-    profiler.print_stats()
-
-    for user in users_indexes:
-        print(user)
-    #    print(f"user_index:{user}")
-        missing_ratings_indexes=get_indexes_of_missing_ratings(user,updated_rating_matrix)
-        #print(f"missing_ratings:{missing_ratings_indexes}")
-        for missing_rating_index in missing_ratings_indexes:
-            #missing rating index was tuple
-            intersection_user_rating=get_intersection(column_vectors,user,missing_rating_index) 
-    #        print(f"intersection_user_rating:{intersection_user_rating}")
-            ratings_user=get_ratings(updated_rating_matrix,intersection_user_rating,user)
-    #        print(f"rating: {ratings_user}, user:{user}")
-            similarities=[]
-            for rating in ratings_user:
-                if len(rating[0])==0:
-                    continue
-                #similarities.append((sim_func.pearson_coeficient(rating[0],rating[1]),rating[2]))
-                similarities.append((sim_func.raw_cosine(rating[0],rating[1]),rating[2]))
-            with open('similiaritie_cosine_raw_user_based.pickle', 'ab') as file:
-                pickle.dump(similarities,file)
-    #        print(similarities)
-
-            top_k_users=get_top_k_users(similarities,5)
-            numerator=0
-            sim=0
-
-            if len(top_k_users) == 0:
-                continue
-            COMMENT THIS OUT
-            uncomment for average
-                numerator = 1
-
-            #print(top_k_users) 
-            for similarity in top_k_users:
-                 #print(f"rating_matrix_value:{rating_matrix.iloc[similarity[1],missing_rating_index[0]]},sim:{similarity[0]},column:{missing_rating_index[0]}, user:{similarity[1]}")
-                 numerator+=similarity[0]*(rating_matrix.iloc[similarity[1], missing_rating_index]-users_mean.iloc[similarity[1]])
-                 sim+=similarity[0]
-
-            predictions.append((user,missing_rating_index,users_mean.iloc[user]+(numerator/sim)))
-            
-           #print(f"numerator:{numerator},sim:{sim}")
-
-            #print(f"prediction:{prediction}")
-    #with open('predictions_user_based_cosine_raw.pickle', 'rb') as file:
-        #column_vectors=pickle.load(file)
-
-    print(predictions)
+         
 """
