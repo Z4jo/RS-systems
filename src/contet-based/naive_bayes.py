@@ -13,6 +13,7 @@ import multiprocessing
 #PATH_TO_RATINGS = '../../data_movilens/content-based ratings.csv'
 PATH_TO_RATINGS='../../data_movilens/ml-latest-small/ratings.csv'
 PATH_TO_MOVIES = '../../data_movilens/ml-latest-small/movies.csv'
+PATH_TO_CROSS = '../cross_validation_parts.pickle'
 
 def get_indexes_of_not_empty_ratings_by_user(df):
     array_of_arrays = []
@@ -60,11 +61,9 @@ def pre_calculate_user_model(user_df,genres_column_names,values_of_genre,class_o
     return all_probabilities
 
 def naive_bayes_prediciton(user_df,user_id,model):
-    print(user_id)
     predictions = []
     genres_column_names = np.array(user_df.columns)
     genres_column_names = genres_column_names[2:len(genres_column_names)-1]
-   #nan_indexes = rating_matrix_clone.iloc[i].index[rating_matrix_clone.iloc[i].isna()] 
     nan_indexes = user_df[user_df['rating'].isna()].index 
     class_options = [1.0,2.0,3.0,4.0,5.0]
     values_of_genre = dict()
@@ -82,25 +81,17 @@ def naive_bayes_prediciton(user_df,user_id,model):
     user_df = user_df.dropna()
     if model == 0:
         model = pre_calculate_user_model(user_df,genres_column_names,values_of_genre,class_options)
-  #  print(model)
     for nan_vector in nan_vectors:
-  #      print(nan_vector)
         nan_vector_shrinked = nan_vector[2:len(nan_vector)-1]
         sum = np.ones(5)
-        #sum = np.zeros(5)
         for i,feature in enumerate(nan_vector_shrinked):
             binary_feature = int(feature)
             genre = model[i]
             result = genre[binary_feature]
             sum *= result
-        #base_log_probabilities = sum + prior_class_probability
         base_probabilities = sum * np.exp(prior_class_probability)
-        #index = np.argmax(base_probabilities)
-        #base_probabilities = np.exp(base_log_probabilities) 
         numerators = base_probabilities * class_options 
-   #     print(f"sum:{sum},\nbase_probabilities:{base_probabilities},\nnumerators:{numerators}")
         predictions.append((numerators.sum()/base_probabilities.sum(),nan_vector[0]))
-        #predictions.append((int(class_options[index]),nan_vector[0]))
     return (predictions,user_id,model)
    
 if __name__ == '__main__':
@@ -114,12 +105,12 @@ if __name__ == '__main__':
     profiler = cProfile.Profile()
     profiler.enable()
     parts = []
-    if not os.path.exists("./cross_validation_parts.pickle"):
+    if not os.path.exists(PATH_TO_CROSS):
         parts = cross_validation.create_parts_dataset(5,131,rating_matrix)
-        with open("cross_validation_parts.pickle","wb") as file:
+        with open(PATH_TO_CROSS,"wb") as file:
             pickle.dump(parts,file)
     else:
-        with open("cross_validation_parts.pickle","rb") as file:
+        with open(PATH_TO_CROSS,"rb") as file:
             parts = pickle.load(file)
 
     for iteration,part in enumerate(parts):
@@ -143,7 +134,6 @@ if __name__ == '__main__':
                 model_value = model[i]
             iterable.append((user_data,i,model_value))
 
-        #user_dataframe = change_rating_to_class(user_index,user_dataframe,rating_matrix) 
         pool = multiprocessing.Pool(processes=8)
         predictions = pool.starmap(naive_bayes_prediciton, iterable)
         pool.close()
@@ -157,7 +147,6 @@ if __name__ == '__main__':
             model.append(user_model)
             for predicted_value,movie_id in predicted_list:
                 final_dataframe.loc[user_id,movie_id] = predicted_value
-        #print(rating_matrix)
         with open("naive_bayes_prediciton"+str(iteration)+".pickle","wb") as file:
             pickle.dump(final_dataframe,file)
 

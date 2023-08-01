@@ -12,6 +12,7 @@ import cross_validation
 PATH_TO_RATINGS='../../data_movilens/ml-latest-small/ratings.csv'
 PATH_TO_MOVIES = '../../data_movilens/ml-latest-small/movies.csv'
 PATH_TO_MODEL = '../contet-based/linear_model.pickle'
+PATH_TO_CROSS = '../cross_validation_parts.pickle'
 
 def generate_user_dataframe(rating_matrix, movies_df, user_id):
     user_ratings_df = rating_matrix.iloc[user_id]
@@ -119,12 +120,12 @@ if __name__ == '__main__':
     movies_df = pd.read_csv(PATH_TO_MOVIES,delimiter = ',')
     rating_matrix= pd.pivot_table(data=ratings_df,index="userId",columns="movieId", values="rating")
     parts = []
-    if not os.path.exists("./cross_validation_parts.pickle"):
+    if not os.path.exists(PATH_TO_CROSS):
         parts = cross_validation.create_parts_dataset(5,131,rating_matrix)
-        with open("cross_validation_parts.pickle","wb") as file:
+        with open(PATH_TO_CROSS,"wb") as file:
             pickle.dump(parts,file)
     else:
-        with open("cross_validation_parts.pickle","rb") as file:
+        with open(PATH_TO_CROSS,"rb") as file:
             parts = pickle.load(file)
     rating_matrix = rating_matrix.reset_index(drop = True)
     rating_matrix.index.name = "userId"
