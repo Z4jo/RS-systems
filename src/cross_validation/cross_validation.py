@@ -3,6 +3,7 @@ import numpy as np
 import random as rnd
 import pickle
 import pandas as pd
+import random as rnd
 
 PATH_TO_DATA = '../../data_movilens/ml-latest-small/ratings.csv'
 
@@ -45,10 +46,45 @@ def create_parts_dataset(k_size, random_seed, rating_matrix):
         parts.append(part)
     return parts
 
+def get_five_start_rating_indexes():
+    parts = 0
+    with open("cross_validation_parts.pickle","rb") as file:
+        parts = pickle.load(file)
+
+    for iteration, part in enumerate(parts):
+        five_start_bundle = dict()
+        for rating_tuple in part:
+            row,_,rating = rating_tuple
+            if rating == 5:
+                if row not in five_start_bundle:
+                    five_start_bundle[row] = []
+                five_start_bundle[row].append(rating_tuple)
+
+        with open("../cross_validation/bunde_"+str(iteration)+".pickle","wb") as file:
+            pickle.dump(five_start_bundle,file)
+ 
 if __name__ == '__main__':
     dataframe=pd.read_csv(PATH_TO_DATA,delimiter=',')
     rating_matrix= pd.pivot_table(data=dataframe,index="userId",columns="movieId", values="rating")
-    parts = create_parts_dataset(5,131,rating_matrix)      
-    for part in parts:
-        print(len(part))
+    
+    get_five_start_rating_indexes()
+    for iteration in range(5):
+        bundle = 0
+        with open("../cross_validation/bunde_"+str(iteration)+".pickle","rb") as file:
+                bundle = pickle.load(file)
+
+        #sorted_bundle = sorted(bundle, key = lambda x: x[0])
+        #print(iteration)
+        print(bundle.keys())
+
+"""
+        for i,u in rating_matrix.iterrows():
+            counter = u.value_counts().get(5,0)
+            print(f"user_id:{i}; max:{u.max()}; counter:{counter}")
+"""
+
+
+   # parts = create_parts_dataset(5,131,rating_matrix)      
+   # for part in parts:
+   #     print(len(part))
     

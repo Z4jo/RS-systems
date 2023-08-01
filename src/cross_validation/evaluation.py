@@ -1,4 +1,3 @@
-from datetime import time
 import pandas as pd
 import numpy as np
 import math
@@ -7,6 +6,7 @@ import pickle
 import csv
 import matplotlib.pyplot as plt
 import seaborn as sns
+import random as rnd
 
 
 PATH_TO_DATA = '../../data_movilens/ml-latest-small/ratings.csv'
@@ -15,26 +15,10 @@ PATH_TO_RESULTS_SVD = '../collaborative-filtering/results/model_based_svd/'
 PATH_TO_RESULTS_MEMORY_BASED= '../collaborative-filtering/results/memory_based/'
 PATH_TO_RESULTS_CONTENT_BASED = '../contet-based/results'
 PATH_TO_RESULTS_HYBRID = '../hybrid/results'
-PATH_TO_PARTS = '../collaborative-filtering/cross_validation_parts.pickle'
+PATH_TO_PARTS = '../cross_validation_parts.pickle'
 PATH_TO_RESULTS= './results.csv'
 
     
-def precision(timestamp_matrix, top_k_list, user_index):
-    indices = top_k_list.index
-    tmp = 0
-    for index, _ in enumerate(top_k_list):
-        if  not pd.isna(timestamp_matrix.iloc[user_index,indices[index]]):
-            tmp += 1
-    return tmp / len(top_k_list)
-
-def recall(user_part, top_k_list, user_index ):
-    indices = top_k_list.index
-    tmp = 0
-    for index, _ in enumerate(top_k_list):
-        if  not pd.isna(timestamp_matrix.iloc[user_index,indices[index]]):
-            tmp += 1
-    return tmp / len(user_part)
-
 def f1_score(precision, recall):
     nominator = 2 * precision * recall
     denominator = precision + recall
@@ -85,19 +69,50 @@ def create_dict_from_part(part):
         users_ratings_dict[key].append(tuple)
     return users_ratings_dict
 
+def top_k_evalutaion(five_star_rating_cells,predicted_row,original_row):
+    rnd.seed(1000)
+    not_rated_indeces = original_row.index[original_row.isna()].values 
+    hit = 0
+    for five_star_rating in five_star_rating_cells:
+        _,column,_= five_star_rating
+        nri_copy = not_rated_indeces.copy()
+        chosen_indexes = []
+        for _ in range(500):
+            rnd_int = rnd.randint(0,len(nri_copy)-1) 
+            if rnd_int == column:
+                nri_copy = np.delete(nri_copy,rnd_int)
+                rnd_int = rnd.randint(0,len(nri_copy)-1)
+            predicted_index = nri_copy[rnd_int]
+            if np.isnan(predicted_row.iloc[predicted_index]):
+                nri_copy = np.delete(nri_copy,rnd_int)
+                rnd_int = rnd.randint(0,len(nri_copy)-1)
+                predicted_index = nri_copy[rnd_int]
+            chosen_indexes.append(predicted_index)
+            nri_copy = np.delete(nri_copy,rnd_int)
+
+        chosen_values = predicted_row.iloc[chosen_indexes] 
+        chosen_values = pd.concat([chosen_values,pd.Series([predicted_row.iloc[column]], index = [-1])])
+        sorted_list = chosen_values.sort_values(ascending = False)
+        top_20 = sorted_list[:20]
+        if -1 in top_20.index.values: 
+            hit += 1
+    return hit,len(five_star_rating_cells)
+        
 
 if __name__ == '__main__':
     dataframe=pd.read_csv(PATH_TO_DATA,delimiter=',')
     rating_matrix= pd.pivot_table(data=dataframe,index="userId",columns="movieId", values="rating")
     timestamp_matrix= pd.pivot_table(data=dataframe,index="userId",columns="movieId", values="timestamp")
+
     numbers_array = [num for num in range(0, timestamp_matrix.shape[1])]
     timestamp_matrix.columns = numbers_array
+    rating_matrix.columns =numbers_array
     timestamp_matrix= timestamp_matrix.reset_index(drop = True)
     timestamp_matrix.index.name = "userId"
+    #WARN: CHANGE FOR DIFFERENT ALGO EVALUATION
+    path_to_results = PATH_TO_RESULTS_MEMORY_BASED
 
-
-    print(timestamp_matrix)
-    splited_path = PATH_TO_RESULTS_SVD.split('/') 
+    splited_path = path_to_results.split('/') 
     splited_type_algo = splited_path[-2].split('_')
     parts = []
     
@@ -106,108 +121,93 @@ if __name__ == '__main__':
             parts = pickle.load(file)
     else:
          raise ValueError("Invalid path to cross_validation_parts: " + PATH_TO_PARTS)
-    if os.path.exists(PATH_TO_RESULTS_SVD):
+    if os.path.exists(path_to_results):
         recommendation = 0
-        num_rows = 610
-        num_cols = 9742
-        for index, filename in enumerate(os.listdir(PATH_TO_RESULTS_SVD)):
+        for index, filename in enumerate(os.listdir(path_to_results)):
             filename_split = filename.split('.')
             part_number = int(filename_split[0][-1])
-            filepath = os.path.join(PATH_TO_RESULTS_SVD,filename)
+            bundle_dict = 0
+            with open ("bunde_"+str(part_number)+".pickle","rb") as file:
+                bundle_dict = pickle.load(file)
+            filepath = os.path.join(path_to_results,filename)
             with open(filepath, 'rb') as file:
                 recommendation = pickle.load(file)
             part_dict = create_dict_from_part(parts[part_number])  
+
             if splited_type_algo[0] == "memory":
                 print(filename)
-                df = rating_matrix.copy()
-                df = pd.DataFrame(index=range(num_rows), columns=range(num_cols))
+                rating_matrix_clone= rating_matrix.copy()
+                df = pd.DataFrame(index=range(rating_matrix.shape[0]), columns=range(rating_matrix.shape[1]))
                 df = df.fillna(np.nan)
+                numbers_array = [num for num in range(0, df.shape[1])]
+                rating_matrix_clone.columns = numbers_array
                 for array in recommendation:
                     for row, column, rating in array:
-                        if rating < 0:
-                            rating = 0
-                        elif rating > 5:
+                        if rating > 5:
                             rating = 5
+                        elif rating < 0:
+                            rating = 0
                         df.iloc[row, column] = rating
-                denominator = f1_ret = precision_ret = recall_ret = novelty_ret = succesful_recommendation = 0
-                keys = part_dict.keys()
+                counter = hits = test_cases =  novelty_ret = succesful_recommendation = 0
+                keys = bundle_dict.keys()
                 for j , row in df.iterrows():
-                    if index in keys:
+                    if j in keys:
                         sorted_row = row.sort_values(ascending = False, na_position = "last")
                         top_k_ratings = sorted_row[:20]
                         if len(top_k_ratings) >= 20:
                             succesful_recommendation += 1
-                        recall_ret += recall(part_dict[j], top_k_ratings, j)
-                        precision_ret += precision(timestamp_matrix,top_k_ratings,j)
+                        hits_ret, test_cases_ret= top_k_evalutaion(bundle_dict[j],df.iloc[j],rating_matrix_clone.iloc[j]) 
+                        hits+= hits_ret 
+                        test_cases += test_cases_ret
                         novelty_ret += novelty(df, top_k_ratings )
-                        f1_ret += f1_score(precision_ret, recall_ret)
-                        denominator += 1
-                precision_result =  precision_ret / denominator
-                recall_result = recall_ret / denominator
-                novelty_result = novelty_ret / denominator
-                f1_result = f1_score(precision_ret / denominator, recall_ret / denominator)
+                        counter += 1
+
+                recall = hits/test_cases
+                precision = recall / 20
+                novelty_result = novelty_ret / counter
+                f1_result = f1_score(precision,recall)
                 error_values = get_error_values(part_dict,df)
                 rmse = RMSE(error_values,len(parts[part_number]))
                 mae = MAE(error_values,len(parts[part_number]))
                 coverage = user_coverage(succesful_recommendation, df.shape[0])
                 with open(PATH_TO_RESULTS, 'a', newline='') as file:
                     writer = csv.writer(file)
-                    writer.writerow((filename,precision_result,recall_result,f1_result,novelty_result,coverage,rmse,mae))    
+                    writer.writerow((filename,precision,recall,f1_result,novelty_result,coverage,rmse,mae))    
 
 
             else:
                 print(filename)
+                rating_matrix_clone= rating_matrix.copy()
                 df = recommendation
-                print(df)
                 numbers_array = [num for num in range(0, df.shape[1])]
                 df.columns = numbers_array
+                rating_matrix_clone.columns = numbers_array
                 df = df.reset_index(drop = True)
                 df.index.name = "userId"
-                keys = part_dict.keys()
-                denominator = precision_ret = recall_ret = novelty_ret = succesful_recommendation = 0
+                keys = bundle_dict.keys()
+                counter = hits = test_cases = novelty_ret = succesful_recommendation = 0
                 for j, row in df.iterrows(): 
-                    if index in keys:
-                        sorted_row = row.sort_values(ascending = False, na_position = "last")
-                        top_k_ratings = sorted_row[:20]
-                        if len(top_k_ratings) >= 20:
+                    if j in keys:
+                        hits_ret, test_cases_ret= top_k_evalutaion(bundle_dict[j],df.iloc[j],rating_matrix_clone.iloc[j]) 
+                        hits += hits_ret
+                        test_cases += test_cases_ret
+                        counter += 1
+                        sorted_row = df.iloc[j].sort_values(ascending = False)
+                        top_20 = sorted_row.iloc[:20]
+                        if len(top_20) >= 20:
                             succesful_recommendation += 1
-                        recall_ret += recall(part_dict[j], top_k_ratings, j)
-                        precision_ret += precision(timestamp_matrix,top_k_ratings,j)
-                        novelty_ret += novelty(df, top_k_ratings )
-                        denominator += 1
-                precision_result =  precision_ret / denominator
-                recall_result = recall_ret / denominator
-                novelty_result = novelty_ret / denominator
-                f1_result = f1_score(precision_ret / denominator, recall_ret / denominator)
+                        novelty_ret += novelty(df,top_20)
+
+                recall = hits/test_cases
+                precision = recall / 20
+
+                novelty_result = novelty_ret / counter
+                f1_result = f1_score(precision, recall)
                 error_values = get_error_values(part_dict,df)
                 rmse = RMSE(error_values,len(parts[part_number]))
                 mae = MAE(error_values,len(parts[part_number]))
                 coverage = user_coverage(succesful_recommendation, df.shape[0])
                 with open(PATH_TO_RESULTS, 'a', newline='') as file:
                     writer = csv.writer(file)
-                    writer.writerow((filename,precision_result,recall_result,f1_result,novelty_result,coverage,rmse,mae))    
+                    writer.writerow((filename,precision,recall,f1_result,novelty_result,coverage,rmse,mae))    
 
-
-    else:
-        raise ValueError("Invalid path to results: " + PATH_TO_RESULTS)
-"""
-    sorted_row = df.iloc[0].sort_values(ascending = False, na_position = "last")
-                indexes = sorted_row.index
-                print(df.iloc[0,0])
-                print(part_dict[0])
-                top_k_ratings = sorted_row[:100]
-                ret_precision= precision(timestamp_matrix,top_k_ratings,0)
-
-                with open(PATH_TO_RESULTS, 'a') as file:
-                    file.write(filename + "\n"
-                            +"precision:"+ str(precision_result) + "\n"
-                               +"recall:" + str(recall_result) + "\n"
-                               +"novelty:" + str(novelty_result) + "\n"
-                               +"f1:" + str(f1_result) + "\n"
-                               +"rmse:" + str(rmse) + "\n"
-                               +"mae:" + str(mae) + "\n"
-                               +"coverage:" + str(coverage) + "\n"
-                               )
-          
-
-"""
