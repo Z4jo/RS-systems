@@ -13,7 +13,7 @@ import mnl_regression
 PATH_TO_RATINGS ='../../data_movilens/ml-latest-small/ratings.csv'
 PATH_TO_MOVIES = '../../data_movilens/ml-latest-small/movies.csv'
 PATH_TO_MODEL = '../contet-based/mnl_model.pickle'
-NAME_CROSS_VALIDATION = 'cross_validation_parts.pickle'
+PATH_TO_CROSS = '../cross_validation_parts.pickle'
 
 
 if __name__ == '__main__':
@@ -23,12 +23,12 @@ if __name__ == '__main__':
 
 
     parts = []
-    if not os.path.exists("./"+str(NAME_CROSS_VALIDATION)):
+    if not os.path.exists("./"+str(PATH_TO_CROSS)):
         parts = cross_validation.create_parts_dataset(5,131,rating_matrix)
-        with open(NAME_CROSS_VALIDATION,"wb") as file:
+        with open(PATH_TO_CROSS,"wb") as file:
             pickle.dump(parts,file)
     else:
-        with open(NAME_CROSS_VALIDATION,"rb") as file:
+        with open(PATH_TO_CROSS,"rb") as file:
             parts = pickle.load(file)
     model = []
 

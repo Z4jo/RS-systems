@@ -20,8 +20,7 @@ PATH_TO_SVD = '../collaborative-filtering/results/model_based_svd/model_svd_0.pi
 PATH_TO_WEIGHTED_MODEL = '../hybrid/weighted_model.pickle'
 PATH_TO_LINEAR_REGRESSION_MODEL = '../contet-based/linear_model.pickle'
 PATH_TO_LOGISTIC_REGRESSION_MODEL = '../contet-based/mnl_model.pickle'
-
-NAME_CROSS_VALIDATION= 'cross_validation_parts.pickle'
+PATH_TO_CROSS= '../cross_validation_parts.pickle'
 
  
 if __name__ == '__main__':
@@ -31,12 +30,12 @@ if __name__ == '__main__':
 
 
     parts = []
-    if not os.path.exists("./"+str(NAME_CROSS_VALIDATION)):
+    if not os.path.exists("./"+str(PATH_TO_CROSS)):
         parts = cross_validation.create_parts_dataset(5,131,rating_matrix)
-        with open(NAME_CROSS_VALIDATION,"wb") as file:
+        with open(PATH_TO_CROSS,"wb") as file:
             pickle.dump(parts,file)
     else:
-        with open(NAME_CROSS_VALIDATION,"rb") as file:
+        with open(PATH_TO_CROSS,"rb") as file:
             parts = pickle.load(file)
 
     model = []
