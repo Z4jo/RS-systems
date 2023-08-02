@@ -8,7 +8,6 @@ import cProfile
 import pstats
 sys.path.append('../cross_validation/')
 sys.path.append('../data_procession/')
-sys.path.append('../math_functions/')
 import sim_func
 import cross_validation
 
@@ -102,7 +101,7 @@ def get_top_k_users(soreted_similarities,size,missing_rating_index,column_vector
 def predict_ratings_user_based(user_index, missing_entries, column_vectors, rating_matrix):
     top_k_users_size = -1 
     similarities = []
-    predictions=[]
+    result_series = pd.Series([np.nan] * rating_matrix.shape[1])
     users_mean= rating_matrix.mean(1)
     all_user_intersections = get_intersection(column_vectors,user_index)
     intersection_rating = get_ratings_by_user(rating_matrix,all_user_intersections,user_index)
@@ -123,9 +122,14 @@ def predict_ratings_user_based(user_index, missing_entries, column_vectors, rati
             sim+=similarity[0]
         if sim == 0: 
             continue
-        prediction = (user_index,missing_rating_index,users_mean.iloc[user_index]+(numerator/sim))
-        predictions.append(prediction)
-    return predictions 
+        outcome = users_mean.iloc[user_index]+(numerator/sim)
+        if outcome > 5:
+            outcome = 5
+        elif outcome < 1:
+            outcome = 1
+        result_series.iloc[missing_rating_index]
+
+    return result_series
 
 def predict_ratings_item_based(item_index,missing_entries,column_vectors,rating_matrix):
     similarities = []
@@ -151,6 +155,10 @@ def predict_ratings_item_based(item_index,missing_entries,column_vectors,rating_
             if sim == 0:
                 continue
             outcome = numerator / sim 
+            if outcome > 5:
+                outcome = 5
+            elif outcome < 1:
+                outcome = 1
             result_series.iloc[missing_rating_index] = outcome 
     return result_series
             
@@ -199,10 +207,11 @@ def user_based_setup(rating_matrix, number_of_iteration):
     for user_index, missing_entries in enumerate(missing_indices):
         iterable.append((user_index, missing_entries ,item_rating_indexes,rating_matrix))
     pool = multiprocessing.Pool(processes=8)
-    results = pool.starmap(predict_ratings_user_based,iterable)
+    series = pool.starmap(predict_ratings_user_based,iterable)
     pool.close()
     pool.join()
-    return results
+    final_dataframe = pd.DataFrame(series)
+    return final_dataframe
 
 if __name__ == '__main__':
     dataframe=pd.read_csv(PATH_TO_DATA,delimiter=',')
@@ -211,12 +220,12 @@ if __name__ == '__main__':
      
     parts = []
    
-    if not os.path.exists("./cross_validation_parts.pickle"):
+    if not os.path.exists("../cross_validation_parts.pickle"):
         parts = cross_validation.create_parts_dataset(5,131,rating_matrix)
-        with open("cross_validation_parts.pickle","wb") as file:
+        with open("../cross_validation_parts.pickle","wb") as file:
             pickle.dump(parts,file)
     else:
-        with open("cross_validation_parts.pickle","rb") as file:
+        with open("../cross_validation_parts.pickle","rb") as file:
             parts = pickle.load(file)
    
     profiler = cProfile.Profile()
@@ -235,45 +244,6 @@ if __name__ == '__main__':
         # Print the statistics
         stats.print_stats()
         #WARN: depends on the algo
-        with open("item_based_results_cosine_test_10_"+str(iteration)+".pickle", 'wb') as file:
+        with open("n_item_based_results_cosine_test_"+str(iteration)+".pickle", 'wb') as file:
             pickle.dump(result,file)
-"""
- #NOTE: for tests
 
-    for rating in parts[0]:
-        rating_matrix.iloc[rating[0],rating[1]] = np.nan
-    
-    column_vectors= get_indexes_of_not_empty_ratings_by_user2(rating_matrix)
-    missing_indices = [np.where(rating_matrix.iloc[0].isnull())[0]]
-    #nan_indexes = np.where(rating_matrix.iloc[:,0].isna())[0]
-    #missing_indeces.append(nan_indexes)
-    ret = predict_ratings_user_based(0,missing_indices,column_vectors,rating_matrix)
-    part_dict = dict()
-    key = -1 
-    part = sorted(parts[0], key = lambda x: x[1])
-    for item in part:
-        if key != item[0]:
-            key = item[0]
-            part_dict[key] = []
-        part_dict[key].append(item)  
-    sorted_ret = sorted(ret, key = lambda x: x[0])
-    #with open("item_test_0.pickle","wb") as file:
-        #pickle.dump(sorte_red,file)
-    sum = 0
-    counter = 0
-    top_item = 0
-    for item in part_dict[0]:
-        for ret_i in sorted_ret:
-            if item[0] == ret_i[0]:
-                sum+=item[2] - ret_i[2]
-                if ret_i[2] > top_item:
-                    top_item = ret_i[2]
-                print(f"prev:{item}; act:{ret_i}")
-
-    for ret_i in sorted_ret:
-        if ret_i[2] > top_item:
-            counter+=1
-    print(sum/len(part_dict[0]))
-    print(top_item)
-    print(counter)
-"""
