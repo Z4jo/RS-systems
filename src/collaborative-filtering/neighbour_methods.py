@@ -127,13 +127,13 @@ def predict_ratings_user_based(user_index, missing_entries, column_vectors, rati
             outcome = 5
         elif outcome < 1:
             outcome = 1
-        result_series.iloc[missing_rating_index]
+        result_series.iloc[missing_rating_index]=outcome
 
     return result_series
 
 def predict_ratings_item_based(item_index,missing_entries,column_vectors,rating_matrix):
     similarities = []
-    result_series = pd.Series([np.nan] * 610)
+    result_series = pd.Series([np.nan] * rating_matrix.shape[0])
     top_k_sim = -1
     all_item_intersections= get_intersection(column_vectors,item_index)
     intersection_rating = get_ratings_by_item(rating_matrix,all_item_intersections,item_index)
@@ -230,13 +230,15 @@ if __name__ == '__main__':
    
     profiler = cProfile.Profile()
     for iteration, part in enumerate(parts):
+        if iteration == 0:
+            continue
         rating_matrix_clone = rating_matrix.copy()
         for rating_tuple in part:
             row,column,rating=rating_tuple
             rating_matrix_clone.iloc[row,column] = np.nan
         profiler.enable()
-        #result_prediction = user_based_setup(rating_matrix_clone,iteration)
-        result = item_based_setup(rating_matrix_clone,iteration)
+        result = user_based_setup(rating_matrix_clone,iteration)
+        #result = item_based_setup(rating_matrix_clone,iteration)
         profiler.disable()
         profiler.dump_stats('profile_stats')
         # Create a pstats.Stats object
@@ -244,6 +246,6 @@ if __name__ == '__main__':
         # Print the statistics
         stats.print_stats()
         #WARN: depends on the algo
-        with open("n_item_based_results_cosine_test_"+str(iteration)+".pickle", 'wb') as file:
+        with open("n_user_based_results_pearson_test_"+str(iteration)+".pickle", 'wb') as file:
             pickle.dump(result,file)
 
