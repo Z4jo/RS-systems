@@ -55,5 +55,5 @@ if __name__ == '__main__':
             rating_matrix_clone.iloc[row,column] = np.nan
         reconstructed_df = predict(rating_matrix_clone.copy())
         cleared_df = clear_result(reconstructed_df,rating_matrix_clone.copy()) 
-        with open("model_svd_"+str(iteration)+".pickle","wb") as file:
+        with open("i_model_svd_50_"+str(iteration)+".pickle","wb") as file:
             pickle.dump(cleared_df,file)

@@ -11,7 +11,7 @@ import random as rnd
 
 PATH_TO_DATA = '../../data_movilens/ml-latest-small/ratings.csv'
 #NOTE: changes based on results we want to analyze
-PATH_TO_RESULTS_SVD = '../collaborative-filtering/results/model_based_svd/'
+PATH_TO_RESULTS_SVD = '../collaborative-filtering/results/model_50/'
 PATH_TO_RESULTS_MEMORY_BASED= '../collaborative-filtering/results/neighbour/'
 PATH_TO_RESULTS_CONTENT_BASED = '../contet-based/results'
 PATH_TO_RESULTS_HYBRID = '../hybrid/results'
@@ -110,7 +110,7 @@ if __name__ == '__main__':
     timestamp_matrix= timestamp_matrix.reset_index(drop = True)
     timestamp_matrix.index.name = "userId"
     #WARN: CHANGE FOR DIFFERENT ALGO EVALUATION
-    path_to_results = PATH_TO_RESULTS_MEMORY_BASED
+    path_to_results = PATH_TO_RESULTS_SVD
 
     splited_path = path_to_results.split('/') 
     splited_type_algo = splited_path[-2].split('_')
@@ -134,80 +134,40 @@ if __name__ == '__main__':
                 recommendation = pickle.load(file)
             part_dict = create_dict_from_part(parts[part_number])  
 
-            if splited_type_algo[0] == "memory":
-                print(filename)
-                rating_matrix_clone= rating_matrix.copy()
-                df = pd.DataFrame(index=range(rating_matrix.shape[0]), columns=range(rating_matrix.shape[1]))
-                df = df.fillna(np.nan)
-                numbers_array = [num for num in range(0, df.shape[1])]
-                rating_matrix_clone.columns = numbers_array
-                for array in recommendation:
-                    for row, column, rating in array:
-                        if rating > 5:
-                            rating = 5
-                        elif rating < 0:
-                            rating = 0
-                        df.iloc[row, column] = rating
-                counter = hits = test_cases =  novelty_ret = succesful_recommendation = 0
-                keys = bundle_dict.keys()
-                for j , row in df.iterrows():
-                    if j in keys:
-                        sorted_row = row.sort_values(ascending = False, na_position = "last")
-                        top_k_ratings = sorted_row[:20]
-                        if len(top_k_ratings) >= 20:
-                            succesful_recommendation += 1
-                        hits_ret, test_cases_ret= top_k_evalutaion(bundle_dict[j],df.iloc[j],rating_matrix_clone.iloc[j]) 
-                        hits+= hits_ret 
-                        test_cases += test_cases_ret
-                        novelty_ret += novelty(df, top_k_ratings )
-                        counter += 1
+            print(filename)
+            rating_matrix_clone= rating_matrix.copy()
+            df = recommendation
+            numbers_array = [num for num in range(0, df.shape[1])]
+            df.columns = numbers_array
+            rating_matrix_clone.columns = numbers_array
+            df = df.reset_index(drop = True)
+            df.index.name = "userId"
+            keys = bundle_dict.keys()
+            counter = hits = test_cases = novelty_ret = succesful_recommendation = 0
+            for j, row in df.iterrows(): 
+                if j in keys:
+                    hits_ret, test_cases_ret= top_k_evalutaion(bundle_dict[j],df.iloc[j],rating_matrix_clone.iloc[j]) 
+                    hits += hits_ret
+                    test_cases += test_cases_ret
+                    counter += 1
+                    sorted_row = df.iloc[j].sort_values(ascending = False)
+                    top_20 = sorted_row.iloc[:20]
+                    if len(top_20) == 20:
+                        succesful_recommendation += 1
+                    else:
+                        print('yo')
+                    novelty_ret += novelty(df,top_20)
 
-                recall = hits/test_cases
-                precision = recall / 20
-                novelty_result = novelty_ret / counter
-                f1_result = f1_score(precision,recall)
-                error_values = get_error_values(part_dict,df)
-                rmse = RMSE(error_values,len(parts[part_number]))
-                mae = MAE(error_values,len(parts[part_number]))
-                coverage = user_coverage(succesful_recommendation, df.shape[0])
-                with open(PATH_TO_RESULTS, 'a', newline='') as file:
-                    writer = csv.writer(file)
-                    writer.writerow((filename,precision,recall,f1_result,novelty_result,coverage,rmse,mae))    
+            recall = hits/test_cases
+            precision = recall / 20
 
-
-            else:
-                print(filename)
-                rating_matrix_clone= rating_matrix.copy()
-                df = recommendation
-                numbers_array = [num for num in range(0, df.shape[1])]
-                df.columns = numbers_array
-                rating_matrix_clone.columns = numbers_array
-                df = df.reset_index(drop = True)
-                df.index.name = "userId"
-                keys = bundle_dict.keys()
-                counter = hits = test_cases = novelty_ret = succesful_recommendation = 0
-                for j, row in df.iterrows(): 
-                    if j in keys:
-                        hits_ret, test_cases_ret= top_k_evalutaion(bundle_dict[j],df.iloc[j],rating_matrix_clone.iloc[j]) 
-                        hits += hits_ret
-                        test_cases += test_cases_ret
-                        counter += 1
-                        sorted_row = df.iloc[j].sort_values(ascending = False)
-                        top_20 = sorted_row.iloc[:20]
-                        if len(top_20) >= 20:
-                            succesful_recommendation += 1
-                        novelty_ret += novelty(df,top_20)
-
-                recall = hits/test_cases
-                precision = recall / 20
-
-                novelty_result = novelty_ret / counter
-                f1_result = f1_score(precision, recall)
-                error_values = get_error_values(part_dict,df)
-                rmse = RMSE(error_values,len(parts[part_number]))
-                mae = MAE(error_values,len(parts[part_number]))
-                coverage = user_coverage(succesful_recommendation, df.shape[0])
-                with open(PATH_TO_RESULTS, 'a', newline='') as file:
-                    writer = csv.writer(file)
-                    writer.writerow((filename,precision,recall,f1_result,novelty_result,coverage,rmse,mae))    
+            novelty_result = novelty_ret / counter
+            f1_result = f1_score(precision, recall)
+            error_values = get_error_values(part_dict,df)
+            rmse = RMSE(error_values,len(parts[part_number]))
+            mae = MAE(error_values,len(parts[part_number]))
+            coverage = user_coverage(succesful_recommendation, df.shape[0])
+            with open(PATH_TO_RESULTS, 'a', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow((filename,precision,recall,f1_result,novelty_result,coverage,rmse,mae))    
 
