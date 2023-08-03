@@ -12,7 +12,7 @@ import random as rnd
 PATH_TO_DATA = '../../data_movilens/ml-latest-small/ratings.csv'
 #NOTE: changes based on results we want to analyze
 PATH_TO_RESULTS_SVD = '../collaborative-filtering/results/model_based_svd/'
-PATH_TO_RESULTS_MEMORY_BASED= '../collaborative-filtering/results/memory_based/'
+PATH_TO_RESULTS_MEMORY_BASED= '../collaborative-filtering/results/neighbour/'
 PATH_TO_RESULTS_CONTENT_BASED = '../contet-based/results'
 PATH_TO_RESULTS_HYBRID = '../hybrid/results'
 PATH_TO_PARTS = '../cross_validation_parts.pickle'
