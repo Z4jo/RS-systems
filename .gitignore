@@ -1,7 +1,5 @@
-# Ignore compiled all .pickle file
-*.pickle
-#igonre all the  .py files in src folder 
-./src/*.py
+src/*/results/
+./src/*/results/
 ./src/test.py
 ./src/test2.py
 ./src/gest.py
