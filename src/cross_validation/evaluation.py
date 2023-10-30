@@ -11,12 +11,14 @@ import random as rnd
 
 PATH_TO_DATA = '../../data_movilens/ml-latest-small/ratings.csv'
 #NOTE: changes based on results we want to analyze
-PATH_TO_RESULTS_SVD = '../collaborative-filtering/results/model_50/'
+PATH_TO_RESULTS_SVD = '../collaborative-filtering/results/model/'
 PATH_TO_RESULTS_MEMORY_BASED= '../collaborative-filtering/results/neighbour/'
 PATH_TO_RESULTS_CONTENT_BASED = '../contet-based/results'
 PATH_TO_RESULTS_HYBRID = '../hybrid/results'
 PATH_TO_PARTS = '../cross_validation_parts.pickle'
-PATH_TO_RESULTS= './results.csv'
+#WARN: change this
+PATH_TO_RESULTS= './evaluation_2.0.csv'
+#PATH_TO_RESULTS= './results.csv'
 
     
 def f1_score(precision, recall):
@@ -36,9 +38,9 @@ def get_error_values(part_dict,predicted_rating_df):
         predicted_row = predicted_rating_df.iloc[user_key]
         actual_row = part_dict[user_key]
         for actual_r in actual_row:
-                predicted_r = predicted_row.iloc[actual_r[1]]
-                if not pd.isna(predicted_r):
-                    error_values.append(predicted_r - actual_r[2])  
+            predicted_r = predicted_row.loc[actual_r[1]]
+            if not pd.isna(predicted_r):
+                error_values.append(predicted_r - actual_r[2])  
     return error_values            
 
 def MAE(error_values, part_lenght):
@@ -69,35 +71,27 @@ def create_dict_from_part(part):
         users_ratings_dict[key].append(tuple)
     return users_ratings_dict
 
-def top_k_evalutaion(five_star_rating_cells,predicted_row,original_row):
-    rnd.seed(1000)
-    not_rated_indeces = original_row.index[original_row.isna()].values 
+def hit_rate_calculation( relevant_indexes, top_ratings):
     hit = 0
-    for five_star_rating in five_star_rating_cells:
-        _,column,_= five_star_rating
-        nri_copy = not_rated_indeces.copy()
-        chosen_indexes = []
-        for _ in range(500):
-            rnd_int = rnd.randint(0,len(nri_copy)-1) 
-            if rnd_int == column:
-                nri_copy = np.delete(nri_copy,rnd_int)
-                rnd_int = rnd.randint(0,len(nri_copy)-1)
-            predicted_index = nri_copy[rnd_int]
-            if np.isnan(predicted_row.iloc[predicted_index]):
-                nri_copy = np.delete(nri_copy,rnd_int)
-                rnd_int = rnd.randint(0,len(nri_copy)-1)
-                predicted_index = nri_copy[rnd_int]
-            chosen_indexes.append(predicted_index)
-            nri_copy = np.delete(nri_copy,rnd_int)
+    for _,index,_ in relevant_indexes:
+        if index in top_ratings.index:
+            hit+=1 
+    return hit
 
-        chosen_values = predicted_row.iloc[chosen_indexes] 
-        chosen_values = pd.concat([chosen_values,pd.Series([predicted_row.iloc[column]], index = [-1])])
-        sorted_list = chosen_values.sort_values(ascending = False)
-        top_20 = sorted_list[:20]
-        if -1 in top_20.index.values: 
-            hit += 1
-    return hit,len(five_star_rating_cells)
-        
+def combine_test_indexes(all_test_items):
+    item_indexes = set()
+    for user in all_test_items: 
+        for item in all_test_items[user]:
+            item_indexes.add(item[1])
+    return item_indexes
+
+def generate_recommendation_test_set(recommendation,indexes):
+    numbers_array = [num for num in range(0, recommendation.shape[1])]
+    recommendation.columns = numbers_array
+    rating_matrix_clone.columns = numbers_array
+    recommendation = recommendation.reset_index(drop = True)
+    recommendation.index.name = "userId"
+    return recommendation[indexes]
 
 if __name__ == '__main__':
     dataframe=pd.read_csv(PATH_TO_DATA,delimiter=',')
@@ -110,7 +104,7 @@ if __name__ == '__main__':
     timestamp_matrix= timestamp_matrix.reset_index(drop = True)
     timestamp_matrix.index.name = "userId"
     #WARN: CHANGE FOR DIFFERENT ALGO EVALUATION
-    path_to_results = PATH_TO_RESULTS_SVD
+    path_to_results = PATH_TO_RESULTS_MEMORY_BASED
 
     splited_path = path_to_results.split('/') 
     splited_type_algo = splited_path[-2].split('_')
@@ -135,39 +129,33 @@ if __name__ == '__main__':
             part_dict = create_dict_from_part(parts[part_number])  
 
             print(filename)
-            rating_matrix_clone= rating_matrix.copy()
-            df = recommendation
-            numbers_array = [num for num in range(0, df.shape[1])]
-            df.columns = numbers_array
-            rating_matrix_clone.columns = numbers_array
-            df = df.reset_index(drop = True)
-            df.index.name = "userId"
+            rating_matrix_clone = rating_matrix.copy()
             keys = bundle_dict.keys()
-            counter = hits = test_cases = novelty_ret = succesful_recommendation = 0
-            for j, row in df.iterrows(): 
-                if j in keys:
-                    hits_ret, test_cases_ret= top_k_evalutaion(bundle_dict[j],df.iloc[j],rating_matrix_clone.iloc[j]) 
-                    hits += hits_ret
-                    test_cases += test_cases_ret
-                    counter += 1
-                    sorted_row = df.iloc[j].sort_values(ascending = False)
-                    top_20 = sorted_row.iloc[:20]
-                    if len(top_20) == 20:
+            precision = recall = counter = hits = test_cases = novelty_ret = succesful_recommendation = 0
+            test_movies_indexes = sorted(list(combine_test_indexes(part_dict)))
+            recommendation = generate_recommendation_test_set(recommendation,test_movies_indexes)
+            for user, row in recommendation.iterrows(): 
+                if user in keys:
+                    sorted_row = recommendation.iloc[user].sort_values(ascending = False)[:20]
+                    hits = hit_rate_calculation(bundle_dict[user], sorted_row) 
+                    if len(sorted_row) == 20:
                         succesful_recommendation += 1
-                    else:
-                        print('yo')
-                    novelty_ret += novelty(df,top_20)
+                    novelty_ret += novelty(recommendation,sorted_row)
+                    # true positives / true positives + false negatives
+                    recall += hits/len(bundle_dict[user])
+                    # true positives / true positives + false positives
+                    precision += hits / 20
+                    counter += 1
 
-            recall = hits/test_cases
-            precision = recall / 20
-
+            precision = precision/counter 
+            recall = recall/counter 
             novelty_result = novelty_ret / counter
             f1_result = f1_score(precision, recall)
-            error_values = get_error_values(part_dict,df)
+            error_values = get_error_values(part_dict,recommendation)
             rmse = RMSE(error_values,len(parts[part_number]))
             mae = MAE(error_values,len(parts[part_number]))
-            coverage = user_coverage(succesful_recommendation, df.shape[0])
-            with open(PATH_TO_RESULTS, 'a', newline='') as file:
+            coverage = user_coverage(succesful_recommendation, recommendation.shape[0])
+            with open(PATH_TO_RESULTS, 'a', newline = '') as file:
                 writer = csv.writer(file)
                 writer.writerow((filename,precision,recall,f1_result,novelty_result,coverage,rmse,mae))    
 

@@ -2,7 +2,7 @@ import random as rnd
 import numpy as np
 import pandas as pd
 import re
-with open('./cross_validation/results.csv','r') as file:
+with open('./cross_validation/evaluation_2.0.csv','r') as file:
     f = file 
     
     rows = 9
