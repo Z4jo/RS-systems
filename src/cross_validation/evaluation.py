@@ -141,7 +141,9 @@ if __name__ == '__main__':
                     if len(sorted_row) == 20:
                         succesful_recommendation += 1
                     novelty_ret += novelty(recommendation,sorted_row)
+                    # true positives / true positives + false negatives
                     recall += hits/len(bundle_dict[user])
+                    # true positives / true positives + false positives
                     precision += hits / 20
                     counter += 1
 
