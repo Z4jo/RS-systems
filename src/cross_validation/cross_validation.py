@@ -46,22 +46,11 @@ def create_parts_dataset(k_size, random_seed, rating_matrix):
         parts.append(part)
     return parts
 
-def get_five_start_rating_indexes():
-    parts = 0
-    with open("../cross_validation_parts.pickle","rb") as file:
-        parts = pickle.load(file)
-
-    for iteration, part in enumerate(parts):
-        five_start_bundle = dict()
-        for rating_tuple in part:
-            row,_,rating = rating_tuple
-            if rating == 5:
-                if row not in five_start_bundle:
-                    five_start_bundle[row] = []
-                five_start_bundle[row].append(rating_tuple)
-
-        with open("../cross_validation/bunde_"+str(iteration)+".pickle","wb") as file:
-            pickle.dump(five_start_bundle,file)
- 
 if __name__ == '__main__':
-    print('not implemented')
+    path_to_data = "../../data_movilens/ml-latest-small/ratings.csv"
+    df = pd.read_csv(path_to_data,delimiter=',')
+    rm = pd.pivot_table(data = df , index = 'userId',columns='movieId',values='rating')
+    print(rm)
+    ret = create_parts_dataset(5, 100, rm)
+    print(ret)
+

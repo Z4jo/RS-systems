@@ -1,10 +1,13 @@
 import typer
+import numpy as np
+import math
 import pandas as pd
 import mnl_regression_demo
 import linear_regression_demo
 import naive_bayes_demo
 import item_based_demo
 import user_based_demo
+import user_demo
 import svd_demo
 import weighted_hybrid_demo
 import cascade_mnl_svd_demo
@@ -13,6 +16,8 @@ import time
 
 PATH_TO_MOVIES = '../../data_movilens/ml-latest-small/movies.csv'
 LIST_OF_ALGOS = ['user_based', 'item_based', 'svd', 'linear_regression', 'mnl_regression', 'naive_bayes','weighted_regression','cascade_mnl_svd','cascade_weighted_svd']
+PATH_TO_DATA =  '../../data_movilens/ml-latest-small/ratings.csv'
+
 
 def main(name_of_algo: str, user_id: int):
     movies_df = pd.read_csv(PATH_TO_MOVIES,delimiter = ',')
@@ -26,10 +31,10 @@ def main(name_of_algo: str, user_id: int):
     start_time = 0 
     if name_of_algo == LIST_OF_ALGOS[0]:
         start_time = time.time()
-        ret = user_based_demo.main(user_id)
+        ret = user_demo.main(user_id)
     if name_of_algo == LIST_OF_ALGOS[1]:
-        raise Exception('todo')
-        #ret = item_based_demo.main(user_id)
+        start_time = time.time()
+        ret = item_based_demo.main(user_id)
     if name_of_algo == LIST_OF_ALGOS[2]:
         start_time = time.time()
         ret = svd_demo.main(user_id)
@@ -54,7 +59,6 @@ def main(name_of_algo: str, user_id: int):
      
     ret = ret.sort_values(ascending = False, na_position = 'last')
     top_20 = ret.iloc[:20]
-    
     movies_indeces = top_20.index.values
     movies = movies_df.iloc[movies_indeces] 
     movies = movies.assign(predicted_ratings = top_20)
@@ -62,6 +66,7 @@ def main(name_of_algo: str, user_id: int):
     elapsed_time = end_time - start_time
     print(movies)
     print(f"time for recommendation:{elapsed_time}")
+
 
 if __name__ == '__main__':
     typer.run(main)

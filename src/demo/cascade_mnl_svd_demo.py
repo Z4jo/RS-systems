@@ -40,7 +40,7 @@ def main(user_id: int):
     else:
         raise OSError("path for the model wasn't found")
 
-    user_count,item_count = rating_matrix.shape
+    _,item_count = rating_matrix.shape
     ud = mnl_regression.generate_user_dataframe(rating_matrix,movies_df,user_id)
 
     numbers_arr = [i for i in range(0,item_count)]

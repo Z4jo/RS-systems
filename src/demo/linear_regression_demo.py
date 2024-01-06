@@ -29,9 +29,11 @@ def main(user_id: int):
             model = pickle.load(file)
     else:
         raise OSError("path for the model wasn't found")
-
-    user_count,item_count = rating_matrix.shape
+    
+    
+    _,item_count = rating_matrix.shape
     ud = linear_regression.generate_user_dataframe(rating_matrix,movies_df,user_id)
+
 
     numbers_arr = [i for i in range(0,item_count)]
     rating_matrix.columns = numbers_arr
@@ -42,10 +44,11 @@ def main(user_id: int):
 
     y_pred = prediction(ud,model,user_id)
     nan_indexes = rating_matrix.iloc[user_id].index[rating_matrix.iloc[user_id].isna()] 
+
     if y_pred.shape == nan_indexes.shape:
         result_series.iloc[nan_indexes] = y_pred
     
-    return(result_series)
+    return result_series
     
 
 if __name__ == '__main__':

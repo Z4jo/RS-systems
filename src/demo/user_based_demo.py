@@ -1,21 +1,22 @@
 import pandas as pd 
 import numpy as np
 import sys
-sys.path.append('../math_functions/')
+sys.path.append('../collaborative-filtering/')
 import sim_func
-PATH_TO_DATA='../../data_movilens/ml-latest-small/ratings.csv'
+#PATH_TO_DATA = '../../data_movilens/ml-latest-small/ratings.csv'
+PATH_TO_DATA = '../../data_movilens/test.csv'
 
 def main(user_id :int):
     dataframe=pd.read_csv(PATH_TO_DATA,delimiter=',')
     rating_matrix= pd.pivot_table(data=dataframe,index="userId",columns="movieId", values="rating")
     rating_matrix = rating_matrix.reset_index(drop = True)
     rating_matrix.index.name = "userId"
+    print(rating_matrix)
     numbers_array = [num for num in range(0, rating_matrix.shape[1])]
     rating_matrix.columns = numbers_array
 
 
     user_series = rating_matrix.iloc[user_id]
-    print(user_series.shape)
     active_user_mean = user_series.mean()
 
     active_user_nan_index = user_series.index[user_series.isna()].values
@@ -37,11 +38,13 @@ def main(user_id :int):
         similarity = sim_func.pearson_coefficient(user_j_ratings,active_user_ratings)
         similarities.iloc[user_j] = similarity
     for nan_index in active_user_nan_index:
-        print(nan_index)
+        print(f"nan_index: {nan_index}")
+        print(f"similarities: {similarities}")
         numerator = 0
         denominator = 0
         for user_j, intersection in enumerate(intersections):
             user_j_not_nan_indexes = rating_matrix.iloc[user_j].index[rating_matrix.iloc[user_j].notna()].values
+            #TODO: change to 2
             if len(intersection) < 2 :
                 continue
             if nan_index in user_j_not_nan_indexes:
