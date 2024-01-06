@@ -7,8 +7,6 @@ import sys
 import os
 sys.path.append('../cross_validation/')
 import cross_validation
-#PATH_TO_MOVIES = '../../data_movilens/content-based movies.csv'
-#PATH_TO_RATINGS = '../../data_movilens/content-based ratings.csv'
 PATH_TO_RATINGS='../../data_movilens/ml-latest-small/ratings.csv'
 PATH_TO_MOVIES = '../../data_movilens/ml-latest-small/movies.csv'
 PATH_TO_MODEL = '../contet-based/mnl_model.pickle'
@@ -73,6 +71,7 @@ def get_all_users_dataframe(rating_matrix, movies_df):
     return all_users_dataframes
 
 def create_model(all_users_dataframes):
+    print('creating model')
     model = []
     pool = multiprocessing.Pool(processes=8)
     user_profiles = pool.starmap(model_generation, all_users_dataframes)
@@ -85,7 +84,6 @@ def create_model(all_users_dataframes):
     return model
 
 def model_generation(ud,index):
-    print(index)
     ud = ud.rename(columns = {"(no genres listed)": "beta0" })
     ud = ud.dropna()
     genre_df = ud.drop(["movieId","rating","beta0"],axis=1)
@@ -177,7 +175,6 @@ if __name__ == '__main__':
         result = user_profile_predictions(all_users_dataframes,model,rating_matrix_clone)
 
         with open('../contet-based/mnl_regression'+str(iteration)+'.pickle', 'wb') as file:
-            pickle.dump(result,file)
+             pickle.dump(result,file)
         print(f"iteration done:{iteration}")
-            
 

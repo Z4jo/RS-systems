@@ -9,8 +9,6 @@ import cProfile
 import pstats
 import multiprocessing 
 
-#PATH_TO_MOVIES = '../../data_movilens/content-based movies.csv'
-#PATH_TO_RATINGS = '../../data_movilens/content-based ratings.csv'
 PATH_TO_RATINGS='../../data_movilens/ml-latest-small/ratings.csv'
 PATH_TO_MOVIES = '../../data_movilens/ml-latest-small/movies.csv'
 PATH_TO_CROSS = '../cross_validation_parts.pickle'
@@ -97,7 +95,6 @@ if __name__ == '__main__':
     rating_matrix= pd.pivot_table(data=ratings_df,index="userId",columns="movieId", values="rating")
     rating_matrix = rating_matrix.reset_index(drop = True)
     rating_matrix.index.name = "userId"
-    print(rating_matrix)
     profiler = cProfile.Profile()
     profiler.enable()
     parts = []
@@ -136,7 +133,6 @@ if __name__ == '__main__':
 
         profiler.disable()
         profiler.dump_stats('profile_stats')
-        # Create a pstats.Stats object
         model = []
         for predicted_list,user_id,user_model in predictions:
             model.append(user_model)

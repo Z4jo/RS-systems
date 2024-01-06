@@ -7,8 +7,6 @@ import multiprocessing
 sys.path.append('../cross_validation/')
 import cross_validation
 
-#PATH_TO_MOVIES = '../../data_movilens/content-based movies.csv'
-#PATH_TO_RATINGS = '../../data_movilens/content-based ratings.csv'
 PATH_TO_RATINGS='../../data_movilens/ml-latest-small/ratings.csv'
 PATH_TO_MOVIES = '../../data_movilens/ml-latest-small/movies.csv'
 PATH_TO_MODEL = '../contet-based/linear_model.pickle'
@@ -39,7 +37,7 @@ def fit(X, y, iter):
         y_pred = np.dot(X, weights) + bias
         test = mse(y_pred, y)
         if abs(last_mse - test)< 1e-6:
-            print(i)
+            print("iteration:",i)
             return weights, bias
         last_mse = test
         
@@ -103,7 +101,7 @@ def get_not_nan_indexes(df):
     return not_nan_indexes
 
 def create_model(all_users_dataframes):
-
+    print('creating model')
     pool = multiprocessing.Pool(processes=8)
     users_models= pool.starmap(user_model_creation, all_users_dataframes)
     pool.close()
@@ -111,7 +109,7 @@ def create_model(all_users_dataframes):
     model = []
     for _, coefficients, bias in users_models:
         model.append((coefficients,bias))
-    with open("linear_model.pickle","wb") as file:
+    with open("linear_model_to_delete.pickle","wb") as file:
         pickle.dump(model,file)
     return model
 
@@ -141,6 +139,7 @@ if __name__ == '__main__':
             model = pickle.load(file)
     else:
         model = create_model(all_users_dataframes)
+        
 
     for iteration,part in enumerate(parts):
         rating_matrix_clone = rating_matrix.copy()

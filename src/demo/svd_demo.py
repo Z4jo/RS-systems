@@ -4,7 +4,6 @@ sys.path.append('../collaborative-filtering/')
 import svd
 import pandas as pd
 import numpy as np
-import pickle
 
 PATH_TO_RATINGS='../../data_movilens/ml-latest-small/ratings.csv'
 

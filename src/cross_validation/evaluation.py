@@ -18,7 +18,6 @@ PATH_TO_RESULTS_HYBRID = '../hybrid/results'
 PATH_TO_PARTS = '../cross_validation_parts.pickle'
 #WARN: change this
 PATH_TO_RESULTS= 'evaluation_results.csv'
-#PATH_TO_RESULTS= './results.csv'
 
     
 def f1_score(precision, recall):
@@ -154,7 +153,7 @@ if __name__ == '__main__':
             rmse = RMSE(error_values,len(parts[part_number]))
             mae = MAE(error_values,len(parts[part_number]))
             coverage = user_coverage(succesful_recommendation, recommendation.shape[0])
-            #with open(PATH_TO_RESULTS, 'a', newline = '') as file:
-            #    writer = csv.writer(file)
-            #    writer.writerow((filename,precision,recall,f1_result,novelty_result,coverage,rmse,mae))    
+            with open(PATH_TO_RESULTS, 'a', newline = '') as file:
+                writer = csv.writer(file)
+                writer.writerow((filename,precision,recall,f1_result,novelty_result,coverage,rmse,mae))    
 
