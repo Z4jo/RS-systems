@@ -93,7 +93,7 @@ def get_top_k_users(soreted_similarities,size,missing_rating_index,column_vector
         return [] 
     for similarity in soreted_similarities: 
         if len(ret)==size:
-         return ret
+            return ret
         if  missing_rating_index in column_vectors[similarity[1]]:
             ret.append((similarity[0],similarity[1]))
     return ret
@@ -134,15 +134,16 @@ def predict_ratings_user_based(user_index, missing_entries, column_vectors, rati
 def predict_ratings_item_based(item_index,missing_entries,column_vectors,rating_matrix):
     similarities = []
     result_series = pd.Series([np.nan] * rating_matrix.shape[0])
-    top_k_sim = -1
+    top_k_sim = -1  
     all_item_intersections= get_intersection(column_vectors,item_index)
     intersection_rating = get_ratings_by_item(rating_matrix,all_item_intersections,item_index)
-    similarities = sorted(similarities, key = lambda x: x[0], reverse = True)
+    #similarities = sorted(similarities, key = lambda x: x[0], reverse = True)
     for rating in intersection_rating:
         #NOTE:UNCOMENT FOR COSINE SIMILARTIY 
         similarities.append((sim_func.adjusted_cosine(rating[0],rating[1]),rating[2])) 
         #NOTE:UNCOMENT FOR PEARSON_COEFICIENT 
         #similarities.append((sim_func.pearson_coefficient(rating[0],rating[1]),rating[2]))
+    similarities = sorted(similarities, key = lambda x: x[0], reverse = True)
     for missing_rating_index in missing_entries:
             numerator = 0
             sim = 0  
@@ -197,7 +198,6 @@ def user_based_setup(rating_matrix, number_of_iteration):
     file_path = os.path.join('./', name_of_pickle_file)  # Construct the full file path
     if not os.path.exists(file_path):
         item_rating_indexes =  get_indexes_of_not_empty_ratings_by_user(rating_matrix)
-        print(item_rating_indexes)
         with open(name_of_pickle_file, 'wb') as file:
             pickle.dump(item_rating_indexes,file)
     else:
@@ -216,7 +216,6 @@ def user_based_setup(rating_matrix, number_of_iteration):
 if __name__ == '__main__':
     dataframe=pd.read_csv(PATH_TO_DATA,delimiter=',')
     rating_matrix= pd.pivot_table(data=dataframe,index="userId",columns="movieId", values="rating")
-    print(rating_matrix.shape)
      
     parts = []
    
@@ -237,8 +236,10 @@ if __name__ == '__main__':
             row,column,rating=rating_tuple
             rating_matrix_clone.iloc[row,column] = np.nan
         profiler.enable()
+        #INFO: change based on algo you want to use
         result = user_based_setup(rating_matrix_clone,iteration)
         #result = item_based_setup(rating_matrix_clone,iteration)
+        ###
         profiler.disable()
         profiler.dump_stats('profile_stats')
         # Create a pstats.Stats object
@@ -246,6 +247,6 @@ if __name__ == '__main__':
         # Print the statistics
         stats.print_stats()
         #WARN: depends on the algo
-        with open("n_user_based_results_pearson_test_"+str(iteration)+".pickle", 'wb') as file:
+        with open("test_n_user_based_results_pearson_test_"+str(iteration)+".pickle", 'wb') as file:
             pickle.dump(result,file)
 

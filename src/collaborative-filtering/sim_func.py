@@ -24,7 +24,7 @@ def adjusted_cosine(user_rating, active_user_rating):
         denominator_part2+=active_user_rating[index]**2
     if denominator_part1 == 0 or denominator_part2 == 0:
         return 0.0
-    return  float(numerator)/(math.sqrt(float(denominator_part1))*math.sqrt(float(denominator_part2)))
+    return  round(float(numerator)/(math.sqrt(float(denominator_part1))*math.sqrt(float(denominator_part2))),2)
 
 
     

@@ -49,9 +49,6 @@ def pre_calculate_user_model(user_df,genres_column_names,values_of_genre,class_o
         for class_value in class_options:
             positive_class_count = (user_df.loc[positive_class_indexes,'rating'] == class_value).sum() 
             negative_class_count = (user_df.loc[negative_class_indexes,'rating'] == class_value).sum() 
-            #print(f"pos_class:{(user_df.loc[positive_class_indexes,'rating'] == class_value).sum()},neg_class:{(user_df.loc[negative_class_indexes,'rating'] == class_value).sum()} class_value:{class_value},genre:{genre}")
-            #positive_class_probabilities =  positive_class_probabilities + (np.log((positive_class_count + laplac_alpha)/(positive_feature_count + laplac_k)),)
-            #negative_class_probabilities = negative_class_probabilities + (np.log((negative_class_count + laplac_alpha)/(negative_feature_count + laplac_k)),)
             positive_class_probabilities =  positive_class_probabilities + ((positive_class_count + laplac_alpha)/(positive_feature_count + laplac_k),)
             negative_class_probabilities = negative_class_probabilities + ((negative_class_count + laplac_alpha)/(negative_feature_count + laplac_k),)
 
@@ -101,7 +98,6 @@ if __name__ == '__main__':
     rating_matrix = rating_matrix.reset_index(drop = True)
     rating_matrix.index.name = "userId"
     print(rating_matrix)
-    #print(rating_matrix)
     profiler = cProfile.Profile()
     profiler.enable()
     parts = []
@@ -126,7 +122,6 @@ if __name__ == '__main__':
         if os.path.exists("../contet-based/naive_bayes_model"+str(iteration)+".pickle"):
             with open("../contet-based/naive_bayes_model"+str(iteration)+".pickle",'rb') as file:
                 model = pickle.load(file)
-        
         for i,_ in rating_matrix_clone.iterrows():
             user_data = generate_user_dataframe(rating_matrix_clone,movies_df,i)
             model_value = 0

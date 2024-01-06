@@ -1,5 +1,3 @@
-src/*/results/
-./src/*/results/
-./src/test.py
-./src/test2.py
-./src/gest.py
+#src/*/results/
+#./src/*/results/
+

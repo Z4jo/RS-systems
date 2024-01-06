@@ -12,20 +12,18 @@ def main(user_id: int):
     movies_df = pd.read_csv(PATH_TO_MOVIES,delimiter = ',')
     rating_matrix= pd.pivot_table(data=ratings_df,index="userId",columns="movieId", values="rating")
 
-    user_count,item_count = rating_matrix.shape
+    _,item_count = rating_matrix.shape
+    
     ud = naive_bayes.generate_user_dataframe(rating_matrix,movies_df,user_id)
 
     predictions,_,_= naive_bayes.naive_bayes_prediciton(ud,user_id,0)
-    result_dataframe = pd.DataFrame(np.nan, index = range(1), columns = rating_matrix.columns)
-
+    result_series = pd.Series(np.nan, index =  rating_matrix.columns)
     for prediction in predictions:
         movie_id = int(prediction[1])
-        result_dataframe.loc[user_id,movie_id] = prediction[0]
+        result_series.loc[movie_id] = prediction[0]
         
     column_arr = [i for i in range(item_count)] 
-    result_dataframe.columns = column_arr
-    result_series = result_dataframe.iloc[0]
-    
+    result_series.index= column_arr
     return result_series
     
 

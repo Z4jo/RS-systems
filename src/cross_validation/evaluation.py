@@ -17,7 +17,7 @@ PATH_TO_RESULTS_CONTENT_BASED = '../contet-based/results'
 PATH_TO_RESULTS_HYBRID = '../hybrid/results'
 PATH_TO_PARTS = '../cross_validation_parts.pickle'
 #WARN: change this
-PATH_TO_RESULTS= './evaluation_2.0.csv'
+PATH_TO_RESULTS= 'evaluation_results.csv'
 #PATH_TO_RESULTS= './results.csv'
 
     
@@ -50,6 +50,7 @@ def MAE(error_values, part_lenght):
 def novelty(df, top_k_ratings):
     #pop == number of users that consumes it == numbers of users that rated the item     
     indeces = top_k_ratings.index
+    print(indeces)
     df_count = df.count(axis = 0)
     result = 0
     for index,_ in enumerate(top_k_ratings):
@@ -58,7 +59,7 @@ def novelty(df, top_k_ratings):
     return result 
 
 def user_coverage(succesful_recommendation, all_users_count):
-    return abs(succesful_recommendation) / all_users_count
+    return succesful_recommendation / all_users_count
 
 def create_dict_from_part(part):
     sorted_part = sorted(part, key = lambda x: x[0])
@@ -104,7 +105,7 @@ if __name__ == '__main__':
     timestamp_matrix= timestamp_matrix.reset_index(drop = True)
     timestamp_matrix.index.name = "userId"
     #WARN: CHANGE FOR DIFFERENT ALGO EVALUATION
-    path_to_results = PATH_TO_RESULTS_MEMORY_BASED
+    path_to_results = PATH_TO_RESULTS_HYBRID
 
     splited_path = path_to_results.split('/') 
     splited_type_algo = splited_path[-2].split('_')
@@ -120,33 +121,31 @@ if __name__ == '__main__':
         for index, filename in enumerate(os.listdir(path_to_results)):
             filename_split = filename.split('.')
             part_number = int(filename_split[0][-1])
-            bundle_dict = 0
-            with open ("bunde_"+str(part_number)+".pickle","rb") as file:
-                bundle_dict = pickle.load(file)
             filepath = os.path.join(path_to_results,filename)
             with open(filepath, 'rb') as file:
                 recommendation = pickle.load(file)
             part_dict = create_dict_from_part(parts[part_number])  
-
             print(filename)
             rating_matrix_clone = rating_matrix.copy()
-            keys = bundle_dict.keys()
             precision = recall = counter = hits = test_cases = novelty_ret = succesful_recommendation = 0
             test_movies_indexes = sorted(list(combine_test_indexes(part_dict)))
             recommendation = generate_recommendation_test_set(recommendation,test_movies_indexes)
             for user, row in recommendation.iterrows(): 
-                if user in keys:
+                if user in part_dict.keys():
                     sorted_row = recommendation.iloc[user].sort_values(ascending = False)[:20]
-                    hits = hit_rate_calculation(bundle_dict[user], sorted_row) 
+                    hits = hit_rate_calculation(part_dict[user], sorted_row) 
                     if len(sorted_row) == 20:
                         succesful_recommendation += 1
+                    else:
+                        print(len(sorted_row))
                     novelty_ret += novelty(recommendation,sorted_row)
                     # true positives / true positives + false negatives
-                    recall += hits/len(bundle_dict[user])
+                    recall += hits/len(part_dict[user])
                     # true positives / true positives + false positives
                     precision += hits / 20
                     counter += 1
-
+                else:
+                    print(user)
             precision = precision/counter 
             recall = recall/counter 
             novelty_result = novelty_ret / counter
@@ -155,7 +154,7 @@ if __name__ == '__main__':
             rmse = RMSE(error_values,len(parts[part_number]))
             mae = MAE(error_values,len(parts[part_number]))
             coverage = user_coverage(succesful_recommendation, recommendation.shape[0])
-            with open(PATH_TO_RESULTS, 'a', newline = '') as file:
-                writer = csv.writer(file)
-                writer.writerow((filename,precision,recall,f1_result,novelty_result,coverage,rmse,mae))    
+            #with open(PATH_TO_RESULTS, 'a', newline = '') as file:
+            #    writer = csv.writer(file)
+            #    writer.writerow((filename,precision,recall,f1_result,novelty_result,coverage,rmse,mae))    
 

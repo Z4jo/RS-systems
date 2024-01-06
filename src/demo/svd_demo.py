@@ -19,6 +19,7 @@ def clear_result (user_id, result_df, rating_matrix):
 def main(user_id: int):
     ratings_df = pd.read_csv(PATH_TO_RATINGS,delimiter = ',')
     rating_matrix= pd.pivot_table(data=ratings_df,index="userId",columns="movieId", values="rating")
+    
 
     svd_y = svd.predict(rating_matrix) 
     svd_y_cleared = clear_result(user_id,svd_y,rating_matrix)
