@@ -8,8 +8,6 @@ import cross_validation
 
 #NOTE: MOVIELENS DATASET
 PATH_TO_DATA='../../data_movilens/ml-latest-small/ratings.csv'
-#NOTE: TEST DATASET
-#PATH_TO_DATA='../../data_movilens/testSVD.csv'
 
 
 def predict(rating_matrix):
@@ -42,10 +40,10 @@ if __name__ == '__main__':
     parts = []
     if not os.path.exists("./cross_validation_parts.pickle"):
         parts = cross_validation.create_parts_dataset(5,131,rating_matrix)
-        with open("cross_validation_parts.pickle","wb") as file:
+        with open("../cross_validation_parts.pickle","wb") as file:
             pickle.dump(parts,file)
     else:
-        with open("cross_validation_parts.pickle","rb") as file:
+        with open("../cross_validation_parts.pickle","rb") as file:
             parts = pickle.load(file)
 
     for iteration, part in enumerate(parts):
@@ -55,5 +53,5 @@ if __name__ == '__main__':
             rating_matrix_clone.iloc[row,column] = np.nan
         reconstructed_df = predict(rating_matrix_clone.copy())
         cleared_df = clear_result(reconstructed_df,rating_matrix_clone.copy()) 
-        with open("i_model_svd_50_"+str(iteration)+".pickle","wb") as file:
+        with open("test_i_model_svd_20_"+str(iteration)+".pickle","wb") as file:
             pickle.dump(cleared_df,file)

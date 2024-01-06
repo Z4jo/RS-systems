@@ -181,7 +181,6 @@ if __name__ == '__main__':
 
         X, coordinates = create_X(rating_matrix_clone,mnl_regression_cmp,linear_regression_cmp)
         predictions = predict(X, model, coordinates, rating_matrix_clone)
-        print(predictions)
 
         with open('../hybrid/weighted_regression'+str(iteration)+'.pickle','wb') as file:
             pickle.dump(predictions,file)

@@ -11,7 +11,6 @@ sys.path.append('../data_procession/')
 import sim_func
 import cross_validation
 
-#PATH_TO_DATA='../../data_movilens/test.csv'
 PATH_TO_DATA='../../data_movilens/ml-latest-small/ratings.csv'
 
 def get_ratings_by_user(rating_matrix,intersections,index_active_user):
@@ -106,9 +105,6 @@ def predict_ratings_user_based(user_index, missing_entries, column_vectors, rati
     all_user_intersections = get_intersection(column_vectors,user_index)
     intersection_rating = get_ratings_by_user(rating_matrix,all_user_intersections,user_index)
     for rating in intersection_rating:
-        #NOTE: UNCOMENT FOR COSINE SIMILARTIY
-        #similarities.append((sim_func.adjusted_cosine(rating[0],rating[1]),rating[2]))
-        #NOTE: UNCOMENT FOR PEARSON_COEFICIENT 
         similarities.append((sim_func.pearson_coefficient(rating[0],rating[1]),rating[2]))
     sorted_similarities= sorted(similarities, key=lambda x: x[0],reverse=True)
     for missing_rating_index in missing_entries:
@@ -137,12 +133,8 @@ def predict_ratings_item_based(item_index,missing_entries,column_vectors,rating_
     top_k_sim = -1  
     all_item_intersections= get_intersection(column_vectors,item_index)
     intersection_rating = get_ratings_by_item(rating_matrix,all_item_intersections,item_index)
-    #similarities = sorted(similarities, key = lambda x: x[0], reverse = True)
     for rating in intersection_rating:
-        #NOTE:UNCOMENT FOR COSINE SIMILARTIY 
         similarities.append((sim_func.adjusted_cosine(rating[0],rating[1]),rating[2])) 
-        #NOTE:UNCOMENT FOR PEARSON_COEFICIENT 
-        #similarities.append((sim_func.pearson_coefficient(rating[0],rating[1]),rating[2]))
     similarities = sorted(similarities, key = lambda x: x[0], reverse = True)
     for missing_rating_index in missing_entries:
             numerator = 0
@@ -172,7 +164,7 @@ def item_based_setup(rating_matrix,number_of_iteration):
     user_rating_indexes = 0
     name_of_pickle_file='user_rating_indexes'+str(number_of_iteration)+'.pickle'
     print(name_of_pickle_file)
-    file_path = os.path.join('./', name_of_pickle_file)  # Construct the full file path
+    file_path = os.path.join('./', name_of_pickle_file)  
     if not os.path.exists(file_path):
         user_rating_indexes=get_indexes_of_not_empty_ratings_by_item(rating_matrix)
         with open(name_of_pickle_file, 'wb') as file:
@@ -195,7 +187,7 @@ def user_based_setup(rating_matrix, number_of_iteration):
     item_rating_indexes = 0
     name_of_pickle_file='item_rating_indexes'+str(number_of_iteration)+'.pickle'
     print(name_of_pickle_file)
-    file_path = os.path.join('./', name_of_pickle_file)  # Construct the full file path
+    file_path = os.path.join('./', name_of_pickle_file)  
     if not os.path.exists(file_path):
         item_rating_indexes =  get_indexes_of_not_empty_ratings_by_user(rating_matrix)
         with open(name_of_pickle_file, 'wb') as file:
@@ -237,16 +229,14 @@ if __name__ == '__main__':
             rating_matrix_clone.iloc[row,column] = np.nan
         profiler.enable()
         #INFO: change based on algo you want to use
-        result = user_based_setup(rating_matrix_clone,iteration)
-        #result = item_based_setup(rating_matrix_clone,iteration)
-        ###
+        #result = user_based_setup(rating_matrix_clone,iteration)
+        result = item_based_setup(rating_matrix_clone,iteration)
+        #
         profiler.disable()
         profiler.dump_stats('profile_stats')
-        # Create a pstats.Stats object
         stats = pstats.Stats('profile_stats')
-        # Print the statistics
         stats.print_stats()
-        #WARN: depends on the algo
-        with open("test_n_user_based_results_pearson_test_"+str(iteration)+".pickle", 'wb') as file:
+        #INFO: change path based on algo
+        with open("test_nn_user_based_results_pearson_test_"+str(iteration)+".pickle", 'wb') as file:
             pickle.dump(result,file)
 
